@@ -1,11 +1,7 @@
 package com.markineo.pillar.core.task;
 
-/**
- * Open-vocabulary discriminator that identifies which handler processes an envelope.
- * A record rather than an enum so new types can be introduced without touching Pillar
- * core — each consumer module registers its own strings (e.g. "pillar.ping",
- * "skyblock.task.assign").
- */
+// Open vocabulary: message types are handler-declared, not a fixed enum.
+// Consumers register their own strings (e.g. "pillar.ping", "skyblock.task.assign").
 public record MessageType(String value) {
 
     public MessageType {
