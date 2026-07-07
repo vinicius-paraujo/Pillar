@@ -1,0 +1,10 @@
+{
+  "id": "pillar",
+  "name": "Pillar",
+  "version": "1.0.0",
+  "description": "Camada de plataforma da rede Markineo.",
+  "authors": [
+    "Markineo"
+  ],
+  "main": "com.markineo.pillar.velocity.PillarVelocity"
+}

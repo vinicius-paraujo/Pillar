@@ -1,0 +1,37 @@
+package com.markineo.pillar.redis;
+
+import com.markineo.pillar.core.identity.ServerIdentity;
+import redis.clients.jedis.Jedis;
+import redis.clients.jedis.exceptions.JedisException;
+
+import java.time.Duration;
+
+public final class HeartbeatPublisher {
+
+    public static final Duration INTERVAL = Duration.ofSeconds(3);
+
+    // TTL outlives several intervals so a single missed beat does not evict a live node;
+    // once beats stop entirely, the key expires and the node drops from every fleet view.
+    private static final Duration TTL = INTERVAL.multipliedBy(3);
+
+    private final RedisConnector connector;
+    private final ServerIdentity identity;
+
+    public HeartbeatPublisher(RedisConnector connector, ServerIdentity identity) {
+        this.connector = connector;
+        this.identity = identity;
+    }
+
+    public void publish() {
+        if (!connector.isReady()) {
+            return;
+        }
+        try (Jedis jedis = connector.pool().getResource()) {
+            jedis.setex(RedisKeys.presence(identity.id()), TTL.toSeconds(), identity.role().value());
+        } catch (JedisException e) {
+            // A dropped beat is safe to skip: the connector's health loop owns the state
+            // transition, and the TTL evicts this node if the outage persists. Logging here
+            // would spam once per interval during an outage the connector already reported.
+        }
+    }
+}

@@ -1,19 +1,54 @@
 plugins {
     id 'java'
+    id 'com.gradleup.shadow' version '9.4.3'
 }
 
 group = 'com.markineo.pillar'
 version = '1.0.0'
 
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(25)
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}
+
 repositories {
     mavenCentral()
+    maven {
+        name = 'papermc'
+        url = uri('https://repo.papermc.io/repository/maven-public/')
+    }
 }
 
 dependencies {
-    testImplementation platform('org.junit:junit-bom:5.10.0')
-    testImplementation 'org.junit.jupiter:junit-jupiter'
+    compileOnly 'io.papermc.paper:paper-api:26.1.2.build.+'
+    compileOnly 'com.velocitypowered:velocity-api:3.4.0'
+
+    implementation('redis.clients:jedis:5.2.0') {
+        exclude group: 'org.slf4j'
+        exclude group: 'com.google.errorprone'
+    }
+    implementation 'org.yaml:snakeyaml:2.3'
 }
 
-test {
-    useJUnitPlatform()
+jar {
+    enabled = false
 }
+
+shadowJar {
+    archiveClassifier = ''
+    mergeServiceFiles()
+    exclude 'META-INF/maven/**'
+
+    relocate 'redis.clients', 'com.markineo.pillar.lib.jedis'
+    relocate 'org.apache.commons.pool2', 'com.markineo.pillar.lib.pool2'
+    relocate 'com.google.gson', 'com.markineo.pillar.lib.gson'
+    relocate 'org.json', 'com.markineo.pillar.lib.json'
+    relocate 'org.yaml.snakeyaml', 'com.markineo.pillar.lib.snakeyaml'
+}
+
+build.dependsOn shadowJar

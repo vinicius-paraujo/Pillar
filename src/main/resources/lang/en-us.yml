@@ -1,0 +1,15 @@
+prefix: "<gray>[<gold>Pillar</gold>]</gray> "
+
+fleet:
+  header: "<gold>Fleet <gray>(<count> nodes)</gray>"
+  entry: "<gray>- <white><name></white> (<role>) <dark_gray>·</dark_gray> <white><status></white></gray>"
+  empty: "<gray>No nodes registered.</gray>"
+
+ping:
+  success: "<green>Pong from <white><server></white> in <white><latency>ms</white>.</green>"
+  timeout: "<red>No response from <white><server></white> (timed out).</red>"
+  unknown_server: "<red>Unknown server: <white><server></white>.</red>"
+
+connection:
+  degraded: "<red>Redis connection lost. Running in degraded mode.</red>"
+  restored: "<green>Redis connection restored.</green>"

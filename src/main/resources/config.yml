@@ -1,0 +1,12 @@
+server:
+  name: "skyblock-1"
+  # skyblock, hub, minigame, ...
+  role: "skyblock"
+
+redis:
+  host: "127.0.0.1"
+  port: 6379
+  password: ""
+
+# avaliable: en-us, pt-br
+language: "en-us"

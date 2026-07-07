@@ -1,0 +1,15 @@
+prefix: "<gray>[<gold>Pillar</gold>]</gray> "
+
+fleet:
+  header: "<gold>Frota <gray>(<count> servidores)</gray>"
+  entry: "<gray>- <white><name></white> (<role>) <dark_gray>·</dark_gray> <white><status></white></gray>"
+  empty: "<gray>Nenhum servidor registrado.</gray>"
+
+ping:
+  success: "<green>Pong de <white><server></white> em <white><latency>ms</white>.</green>"
+  timeout: "<red>Sem resposta de <white><server></white> (tempo esgotado).</red>"
+  unknown_server: "<red>Servidor desconhecido: <white><server></white>.</red>"
+
+connection:
+  degraded: "<red>Conexão com o Redis perdida. Operando em modo degradado.</red>"
+  restored: "<green>Conexão com o Redis restabelecida.</green>"

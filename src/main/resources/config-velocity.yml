@@ -1,0 +1,9 @@
+proxy:
+  name: "proxy-1"
+
+redis:
+  host: "127.0.0.1"
+  port: 6379
+  password: ""
+
+language: "en-us"

@@ -1,0 +1,12 @@
+# __________.__.__  .__
+# \______   \__|  | |  | _____ _______
+# |     ___/  |  | |  | \__  \\_  __ \
+# |    |   |  |  |_|  |__/ __ \|  | \/
+# |____|   |__|____/____(____  /__|
+# \/
+name: Pillar
+version: '1.0.0'
+main: com.markineo.pillar.paper.Pillar
+api-version: '26.1'
+author: Markineo
+description: Camada de plataforma da rede Markineo.
