@@ -74,6 +74,14 @@ public final class JsonEnvelopeCodec implements EnvelopeCodec {
                 correlationId = Optional.of(new CorrelationId(obj.get(F_CORRELATION).getAsString()));
             }
 
+            // Guard: absent or null payload would produce the string "null" via gson.toJson,
+            // which Envelope accepts (it is a non-blank String). Fail explicitly instead.
+            if (!obj.has(F_PAYLOAD) || obj.get(F_PAYLOAD).isJsonNull()) {
+                throw new PillarException("Envelope is missing required payload field.");
+            }
+            // Three-pass overhead: payload is parsed here, re-serialized to String, then
+            // parsed again in decodePayload. Acceptable at MVP message volume; revisit if
+            // profiling shows this path as hot.
             String payload = gson.toJson(obj.get(F_PAYLOAD));
             return new Envelope(version, type, correlationId, senderId, sentAt, payload);
         } catch (PillarException e) {
@@ -85,6 +93,9 @@ public final class JsonEnvelopeCodec implements EnvelopeCodec {
 
     @Override
     public <T> T decodePayload(Envelope envelope, Class<T> type) {
+        // Class<T> is sufficient for flat objects. When a payload carries a generic
+        // collection (e.g. List<Foo>), a TypeToken overload will be needed — deferred
+        // until a concrete case appears (YAGNI).
         try {
             return gson.fromJson(envelope.payload(), type);
         } catch (Exception e) {

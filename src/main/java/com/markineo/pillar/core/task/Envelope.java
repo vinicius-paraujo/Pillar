@@ -7,6 +7,9 @@ import java.util.Optional;
 // payload is a raw JSON string, not JsonElement, so core never imports a JSON library.
 // The codec (in redis) owns all serialization; two-phase decode lets the transport
 // inspect headers before any handler deserializes the payload.
+// sentAt is epoch-ms as long rather than Instant to stay wire-friendly without a
+// custom serialization adapter; the core prefers typed values but the trade-off is
+// acceptable while there is a single codec implementation.
 public record Envelope(
         int version,
         MessageType type,
