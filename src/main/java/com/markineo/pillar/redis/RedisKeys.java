@@ -5,6 +5,7 @@ import com.markineo.pillar.core.identity.ServerId;
 public final class RedisKeys {
 
     private static final String PRESENCE_PREFIX = "pillar:presence:";
+    private static final String INBOX_PREFIX = "pillar:inbox:";
 
     private RedisKeys() {
     }
@@ -19,5 +20,9 @@ public final class RedisKeys {
 
     public static ServerId presenceId(String key) {
         return new ServerId(key.substring(PRESENCE_PREFIX.length()));
+    }
+
+    public static String inbox(ServerId id) {
+        return INBOX_PREFIX + id.value();
     }
 }

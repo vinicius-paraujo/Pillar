@@ -27,7 +27,7 @@ public final class JsonEnvelopeCodec implements EnvelopeCodec {
     private final Gson gson;
 
     public JsonEnvelopeCodec() {
-        // Disable HTML escaping so forward slashes in role strings survive round-trips.
+        // Keep MiniMessage tags (<gold>) literal, not unicode-escaped.
         this.gson = new GsonBuilder().disableHtmlEscaping().create();
     }
 
@@ -54,41 +54,55 @@ public final class JsonEnvelopeCodec implements EnvelopeCodec {
     @Override
     public Envelope decode(String wire) {
         try {
-            JsonObject obj = JsonParser.parseString(wire).getAsJsonObject();
+            JsonObject root = JsonParser.parseString(wire).getAsJsonObject();
 
-            int version = obj.get(F_VERSION).getAsInt();
-            if (version > Envelope.CURRENT_VERSION) {
-                // Discard rather than misparse: the sender is a newer node we do not understand.
-                throw new PillarException(
-                        "Unrecognized envelope version " + version
-                        + " (max known: " + Envelope.CURRENT_VERSION + ")."
-                );
-            }
+            int version = readVersion(root);
+            MessageType type = new MessageType(readString(root, F_TYPE));
+            ServerId senderId = new ServerId(readString(root, F_SENDER));
+            long sentAt = root.get(F_SENT_AT).getAsLong();
+            Optional<CorrelationId> correlationId = readCorrelationId(root);
+            String payload = readPayload(root);
 
-            MessageType type = new MessageType(obj.get(F_TYPE).getAsString());
-            ServerId senderId = new ServerId(obj.get(F_SENDER).getAsString());
-            long sentAt = obj.get(F_SENT_AT).getAsLong();
-
-            Optional<CorrelationId> correlationId = Optional.empty();
-            if (obj.has(F_CORRELATION) && !obj.get(F_CORRELATION).isJsonNull()) {
-                correlationId = Optional.of(new CorrelationId(obj.get(F_CORRELATION).getAsString()));
-            }
-
-            // Guard: absent or null payload would produce the string "null" via gson.toJson,
-            // which Envelope accepts (it is a non-blank String). Fail explicitly instead.
-            if (!obj.has(F_PAYLOAD) || obj.get(F_PAYLOAD).isJsonNull()) {
-                throw new PillarException("Envelope is missing required payload field.");
-            }
-            // Three-pass overhead: payload is parsed here, re-serialized to String, then
-            // parsed again in decodePayload. Acceptable at MVP message volume; revisit if
-            // profiling shows this path as hot.
-            String payload = gson.toJson(obj.get(F_PAYLOAD));
             return new Envelope(version, type, correlationId, senderId, sentAt, payload);
         } catch (PillarException e) {
             throw e;
         } catch (Exception e) {
             throw new PillarException("Failed to decode envelope: " + e.getMessage(), e);
         }
+    }
+
+    private int readVersion(JsonObject root) {
+        int version = root.get(F_VERSION).getAsInt();
+        if (version > Envelope.CURRENT_VERSION) {
+            // Discard rather than misparse: the sender is a newer node we do not understand.
+            throw new PillarException(
+                    "Unrecognized envelope version " + version
+                    + " (max known: " + Envelope.CURRENT_VERSION + ").");
+        }
+        return version;
+    }
+
+    private String readString(JsonObject root, String field) {
+        return root.get(field).getAsString();
+    }
+
+    private Optional<CorrelationId> readCorrelationId(JsonObject root) {
+        if (!root.has(F_CORRELATION) || root.get(F_CORRELATION).isJsonNull()) {
+            return Optional.empty();
+        }
+        return Optional.of(new CorrelationId(root.get(F_CORRELATION).getAsString()));
+    }
+
+    private String readPayload(JsonObject root) {
+        // An absent or null payload would become the string "null" via gson.toJson, which
+        // Envelope accepts (a non-blank String). Reject it explicitly instead.
+        if (!root.has(F_PAYLOAD) || root.get(F_PAYLOAD).isJsonNull()) {
+            throw new PillarException("Envelope is missing required payload field.");
+        }
+        // Three-pass overhead: the payload is parsed here, re-serialized to String, then
+        // parsed again in decodePayload. Acceptable at MVP message volume; revisit if
+        // profiling shows this path as hot.
+        return gson.toJson(root.get(F_PAYLOAD));
     }
 
     @Override

@@ -47,18 +47,28 @@ public final class ConfigurationFile {
     }
 
     private Object resolve(String path) {
-        Map<String, Object> current = data;
         String[] segments = path.split("\\.");
+        String leafKey = segments[segments.length - 1];
 
-        for (int i = 0; i < segments.length - 1; i++) {
-            if (!(current.get(segments[i]) instanceof Map<?, ?> section)) {
+        Map<String, Object> parentSection = navigateToParentSection(segments);
+        return parentSection == null ? null : parentSection.get(leafKey);
+    }
+
+    // Descends through every segment except the last. Returns null if any intermediate
+    // segment is absent or is not itself a nested section.
+    private Map<String, Object> navigateToParentSection(String[] segments) {
+        Map<String, Object> section = data;
+        for (int depth = 0; depth < segments.length - 1; depth++) {
+            section = asSection(section.get(segments[depth]));
+            if (section == null) {
                 return null;
             }
-            @SuppressWarnings("unchecked")
-            Map<String, Object> typed = (Map<String, Object>) section;
-            current = typed;
         }
+        return section;
+    }
 
-        return current.get(segments[segments.length - 1]);
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> asSection(Object value) {
+        return value instanceof Map<?, ?> map ? (Map<String, Object>) map : null;
     }
 }

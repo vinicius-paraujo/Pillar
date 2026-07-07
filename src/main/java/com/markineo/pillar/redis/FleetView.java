@@ -12,6 +12,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 public final class FleetView {
+    private static final String INITIAL_SCAN_CURSOR = ScanParams.SCAN_POINTER_START;
+    private static final int SCAN_BATCH_SIZE = 100;
 
     private final RedisConnector connector;
 
@@ -37,15 +39,27 @@ public final class FleetView {
     }
 
     private List<String> scanPresenceKeys(Jedis jedis) {
-        ScanParams params = new ScanParams().match(RedisKeys.presencePattern()).count(100);
-        List<String> keys = new ArrayList<>();
-        String cursor = ScanParams.SCAN_POINTER_START;
-        do {
-            ScanResult<String> result = jedis.scan(cursor, params);
-            keys.addAll(result.getResult());
-            cursor = result.getCursor();
-        } while (!cursor.equals(ScanParams.SCAN_POINTER_START));
-        return keys;
+        ScanParams scanParams = new ScanParams()
+                .match(RedisKeys.presencePattern())
+                .count(SCAN_BATCH_SIZE);
+
+        List<String> presenceKeys = new ArrayList<>();
+        String cursor = INITIAL_SCAN_CURSOR;
+
+        while (true) {
+            ScanResult<String> scan = jedis.scan(cursor, scanParams);
+
+            presenceKeys.addAll(scan.getResult());
+
+            cursor = scan.getCursor();
+            if (isScanComplete(cursor)) {
+                return presenceKeys;
+            }
+        }
+    }
+
+    private boolean isScanComplete(String cursor) {
+        return INITIAL_SCAN_CURSOR.equals(cursor);
     }
 
     private FleetSnapshot buildSnapshot(List<String> keys, List<String> roles) {
