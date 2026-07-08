@@ -62,7 +62,7 @@ public final class Pillar extends JavaPlugin {
 
         ServerId selfId = new ServerId(settings.name());
         ServerIdentity identity = new ServerIdentity(selfId, new ServerRole(settings.role()));
-        this.presence = new PresenceService(redis, identity, executors);
+        this.presence = new PresenceService(redis, identity, executors, logger);
         presence.start();
 
         JsonEnvelopeCodec codec = new JsonEnvelopeCodec();

@@ -9,7 +9,6 @@ import com.markineo.pillar.core.task.PillarMessageTypes;
 import com.markineo.pillar.error.PillarException;
 import com.markineo.pillar.logger.PillarLogger;
 
-// Handles incoming pings by publishing a pong back to the sender.
 // Lives in redis because it needs StreamPublisher, which touches Jedis.
 public final class PingHandler implements MessageHandler {
 
