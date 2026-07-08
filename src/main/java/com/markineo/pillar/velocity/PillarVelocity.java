@@ -9,10 +9,16 @@ import com.markineo.pillar.config.PillarSettings;
 import com.markineo.pillar.core.identity.ServerId;
 import com.markineo.pillar.core.identity.ServerIdentity;
 import com.markineo.pillar.core.identity.ServerRole;
+import com.markineo.pillar.core.task.CorrelationRegistry;
+import com.markineo.pillar.core.task.HandlerRegistry;
 import com.markineo.pillar.error.ConfigurationException;
 import com.markineo.pillar.logger.PillarLogger;
+import com.markineo.pillar.redis.JsonEnvelopeCodec;
+import com.markineo.pillar.redis.PingHandler;
 import com.markineo.pillar.redis.PresenceService;
 import com.markineo.pillar.redis.RedisConnector;
+import com.markineo.pillar.redis.StreamConsumer;
+import com.markineo.pillar.redis.StreamPublisher;
 import com.velocitypowered.api.event.Subscribe;
 import com.velocitypowered.api.event.proxy.ProxyInitializeEvent;
 import com.velocitypowered.api.event.proxy.ProxyShutdownEvent;
@@ -21,6 +27,7 @@ import com.velocitypowered.api.proxy.ProxyServer;
 import org.slf4j.Logger;
 
 import java.nio.file.Path;
+import java.util.concurrent.ScheduledExecutorService;
 
 public final class PillarVelocity {
 
@@ -34,6 +41,8 @@ public final class PillarVelocity {
     private PillarExecutors executors;
     private RedisConnector redis;
     private PresenceService presence;
+    private CorrelationRegistry correlations;
+    private StreamConsumer consumer;
 
     @Inject
     public PillarVelocity(ProxyServer server, Logger logger, @DataDirectory Path dataDirectory) {
@@ -61,15 +70,33 @@ public final class PillarVelocity {
         this.redis = new RedisConnector(settings.redis(), executors, logger);
         redis.start();
 
-        ServerIdentity identity = new ServerIdentity(new ServerId(settings.name()), new ServerRole(settings.role()));
+        ServerId selfId = new ServerId(settings.name());
+        ServerIdentity identity = new ServerIdentity(selfId, new ServerRole(settings.role()));
         this.presence = new PresenceService(redis, identity, executors);
         presence.start();
+
+        JsonEnvelopeCodec codec = new JsonEnvelopeCodec();
+        ScheduledExecutorService timeoutScheduler = executors.newSingleThreadScheduled("correlation-timeout");
+        this.correlations = new CorrelationRegistry(timeoutScheduler);
+
+        StreamPublisher publisher = new StreamPublisher(redis, codec);
+        HandlerRegistry handlers = new HandlerRegistry(correlations);
+        handlers.register(new PingHandler(selfId, publisher, logger));
+
+        this.consumer = new StreamConsumer(redis, codec, selfId, executors, logger, handlers.asSink(codec, logger));
+        consumer.start();
 
         logger.info("Pillar initialized as '" + settings.name() + "'.");
     }
 
     @Subscribe
     public void onProxyShutdown(ProxyShutdownEvent event) {
+        if (consumer != null) {
+            consumer.close();
+        }
+        if (correlations != null) {
+            correlations.close();
+        }
         if (presence != null) {
             presence.close();
         }
