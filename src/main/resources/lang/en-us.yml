@@ -8,7 +8,9 @@ fleet:
 ping:
   success: "<green>Pong from <white><server></white> in <white><latency>ms</white>.</green>"
   timeout: "<red>No response from <white><server></white> (timed out).</red>"
+  failed: "<red>Request to <white><server></white> failed: <message></red>"
   unknown_server: "<red>Unknown server: <white><server></white>.</red>"
+  self: "<red>Cannot ping the node you are running this command on.</red>"
 
 connection:
   degraded: "<red>Redis connection lost. Running in degraded mode.</red>"
