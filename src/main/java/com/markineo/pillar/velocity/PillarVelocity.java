@@ -71,7 +71,7 @@ public final class PillarVelocity {
             return;
         }
 
-        logger.info("Using language '" + settings.language() + "'.");
+        logger.info("Enabling Pillar v0.1.0, using language '" + settings.language() + "'.");
 
         this.executors = new PillarExecutors(logger);
         this.redis = new RedisConnector(settings.redis(), executors, logger);

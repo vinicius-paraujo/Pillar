@@ -28,7 +28,7 @@ cd Pillar
 ./gradlew shadowJar
 ```
 
-The shadow jar is at `Pillar/build/libs/Pillar-1.0.0.jar`.
+The shadow jar is at `Pillar/build/libs/Pillar-0.1.0.jar`.
 
 ### 3. Prepare server directories
 
@@ -50,9 +50,9 @@ echo "eula=true" > beta/eula.txt
 Copy the plugin to each server:
 
 ```bash
-cp Pillar/build/libs/Pillar-1.0.0.jar alpha/plugins/
-cp Pillar/build/libs/Pillar-1.0.0.jar beta/plugins/
-cp Pillar/build/libs/Pillar-1.0.0.jar proxy/plugins/
+cp Pillar/build/libs/Pillar-0.1.0.jar alpha/plugins/
+cp Pillar/build/libs/Pillar-0.1.0.jar beta/plugins/
+cp Pillar/build/libs/Pillar-0.1.0.jar proxy/plugins/
 ```
 
 ### 4. Configure Velocity to know both backends
