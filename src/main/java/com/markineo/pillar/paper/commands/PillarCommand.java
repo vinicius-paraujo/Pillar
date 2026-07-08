@@ -19,11 +19,14 @@ import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
 import org.bukkit.command.Command;
-import org.bukkit.command.CommandExecutor;
+import org.bukkit.command.TabExecutor;
 import org.bukkit.command.CommandSender;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+import java.util.List;
+import java.util.stream.Stream;
 
-public final class PillarCommand implements CommandExecutor {
+public final class PillarCommand implements TabExecutor {
 
     private static final MiniMessage MINI = MiniMessage.miniMessage();
     private static final int RECENT_LOG_LIMIT = 8;
@@ -149,5 +152,20 @@ public final class PillarCommand implements CommandExecutor {
 
     private Component render(String key, TagResolver... placeholders) {
         return MINI.deserialize(lang.get(key), placeholders);
+    }
+
+    @Override
+    public @Nullable List<String> onTabComplete(@NotNull CommandSender sender, @NotNull Command command, @NotNull String alias, @NotNull String[] args) {
+        if (args.length == 1) {
+            return Stream.of("fleet", "status", "ping", "reload")
+                    .filter(s -> s.startsWith(args[0].toLowerCase()))
+                    .toList();
+        } else if (args.length == 2 && args[0].equalsIgnoreCase("ping")) {
+            return presence.fleet().stream()
+                    .map(node -> node.id().value())
+                    .filter(s -> s.toLowerCase().startsWith(args[1].toLowerCase()))
+                    .toList();
+        }
+        return List.of();
     }
 }

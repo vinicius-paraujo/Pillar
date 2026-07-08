@@ -153,4 +153,21 @@ public final class PillarCommand implements SimpleCommand {
     private Component render(String key, TagResolver... placeholders) {
         return MINI.deserialize(lang.get(key), placeholders);
     }
+
+    @Override
+    public java.util.List<String> suggest(Invocation invocation) {
+        String[] args = invocation.arguments();
+        if (args.length == 0 || args.length == 1) {
+            String prefix = args.length == 0 ? "" : args[0].toLowerCase();
+            return java.util.stream.Stream.of("fleet", "status", "ping", "reload")
+                    .filter(s -> s.startsWith(prefix))
+                    .toList();
+        } else if (args.length == 2 && args[0].equalsIgnoreCase("ping")) {
+            return presence.fleet().stream()
+                    .map(node -> node.id().value())
+                    .filter(s -> s.toLowerCase().startsWith(args[1].toLowerCase()))
+                    .toList();
+        }
+        return java.util.List.of();
+    }
 }
