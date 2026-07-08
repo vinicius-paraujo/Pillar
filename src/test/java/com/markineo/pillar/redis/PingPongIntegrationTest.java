@@ -45,6 +45,11 @@ class PingPongIntegrationTest extends RedisIntegrationTest {
         betaConsumer.start();
         alphaConsumer.start();
         try {
+            // Both groups must exist before the ping is published; XGROUP_LAST_ENTRY ($)
+            // means messages published before the group is created are invisible to it.
+            await("beta consumer group was never created", () -> groupExists(beta));
+            await("alpha consumer group was never created", () -> groupExists(alpha));
+
             RequestSender sender = new RequestSender(publisher, correlations);
             Envelope ping = Envelope.request(PillarMessageTypes.PING, alpha, "{}");
             CompletableFuture<Envelope> pong = sender.send(beta, ping, TIMEOUT);
@@ -57,6 +62,15 @@ class PingPongIntegrationTest extends RedisIntegrationTest {
             betaConsumer.close();
             alphaConsumer.close();
             scheduler.shutdownNow();
+        }
+    }
+
+    private boolean groupExists(ServerId node) {
+        try (var jedis = connector.pool().getResource()) {
+            return jedis.xinfoGroups(RedisKeys.inbox(node)).stream()
+                    .anyMatch(group -> StreamProtocol.CONSUMER_GROUP.equals(group.getName()));
+        } catch (Exception streamNotCreatedYet) {
+            return false;
         }
     }
 }

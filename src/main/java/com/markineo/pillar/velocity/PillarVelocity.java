@@ -41,6 +41,7 @@ public final class PillarVelocity {
     private PillarExecutors executors;
     private RedisConnector redis;
     private PresenceService presence;
+    private ScheduledExecutorService timeoutScheduler;
     private CorrelationRegistry correlations;
     private StreamConsumer consumer;
 
@@ -76,7 +77,7 @@ public final class PillarVelocity {
         presence.start();
 
         JsonEnvelopeCodec codec = new JsonEnvelopeCodec();
-        ScheduledExecutorService timeoutScheduler = executors.newSingleThreadScheduled("correlation-timeout");
+        this.timeoutScheduler = executors.newSingleThreadScheduled("correlation-timeout");
         this.correlations = new CorrelationRegistry(timeoutScheduler);
 
         StreamPublisher publisher = new StreamPublisher(redis, codec);
@@ -96,6 +97,9 @@ public final class PillarVelocity {
         }
         if (correlations != null) {
             correlations.close();
+        }
+        if (timeoutScheduler != null) {
+            timeoutScheduler.shutdownNow();
         }
         if (presence != null) {
             presence.close();

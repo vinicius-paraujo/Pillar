@@ -16,7 +16,7 @@ import com.markineo.pillar.redis.JsonEnvelopeCodec;
 import com.markineo.pillar.redis.PingHandler;
 import com.markineo.pillar.redis.PresenceService;
 import com.markineo.pillar.redis.RedisConnector;
-import com.markineo.pillar.redis.RequestSender;
+
 import com.markineo.pillar.redis.StreamConsumer;
 import com.markineo.pillar.redis.StreamPublisher;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -32,6 +32,7 @@ public final class Pillar extends JavaPlugin {
     private PillarExecutors executors;
     private RedisConnector redis;
     private PresenceService presence;
+    private ScheduledExecutorService timeoutScheduler;
     private CorrelationRegistry correlations;
     private StreamConsumer consumer;
 
@@ -62,7 +63,7 @@ public final class Pillar extends JavaPlugin {
         presence.start();
 
         JsonEnvelopeCodec codec = new JsonEnvelopeCodec();
-        ScheduledExecutorService timeoutScheduler = executors.newSingleThreadScheduled("correlation-timeout");
+        this.timeoutScheduler = executors.newSingleThreadScheduled("correlation-timeout");
         this.correlations = new CorrelationRegistry(timeoutScheduler);
 
         StreamPublisher publisher = new StreamPublisher(redis, codec);
@@ -82,6 +83,9 @@ public final class Pillar extends JavaPlugin {
         }
         if (correlations != null) {
             correlations.close();
+        }
+        if (timeoutScheduler != null) {
+            timeoutScheduler.shutdownNow();
         }
         if (presence != null) {
             presence.close();

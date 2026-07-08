@@ -35,6 +35,7 @@ public final class PingHandler implements MessageHandler {
             logger.warn("Received a ping with no correlation id from '" + ping.senderId() + "'; ignoring.");
             return;
         }
+
         try {
             // Pong carries no payload; "{}" satisfies Envelope's non-blank requirement.
             Envelope pong = Envelope.response(
@@ -43,6 +44,7 @@ public final class PingHandler implements MessageHandler {
                     self,
                     "{}"
             );
+
             publisher.publish(ping.senderId(), pong);
         } catch (PillarException e) {
             logger.error("Failed to send pong to '" + ping.senderId() + "'.", e);
