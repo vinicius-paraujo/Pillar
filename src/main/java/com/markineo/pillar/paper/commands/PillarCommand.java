@@ -1,5 +1,7 @@
 package com.markineo.pillar.paper.commands;
 
+import com.markineo.pillar.concurrent.PlatformScheduler;
+import com.markineo.pillar.config.Configurations;
 import com.markineo.pillar.config.Lang;
 import com.markineo.pillar.core.fleet.FleetSnapshot;
 import com.markineo.pillar.core.identity.ServerId;
@@ -28,20 +30,25 @@ public final class PillarCommand implements CommandExecutor {
     private static final String ONLINE = "online";
 
     private final Lang lang;
+    private final Configurations configurations;
     private final PresenceService presence;
     private final RedisConnector redis;
     private final InboxDiagnostics diagnostics;
     private final RequestSender requestSender;
+    private final PlatformScheduler scheduler;
     private final ServerId self;
     private final PillarLogger logger;
 
-    public PillarCommand(Lang lang, PresenceService presence, RedisConnector redis,
-                         InboxDiagnostics diagnostics, RequestSender requestSender, ServerId self, PillarLogger logger) {
+    public PillarCommand(Lang lang, Configurations configurations, PresenceService presence, RedisConnector redis,
+                         InboxDiagnostics diagnostics, RequestSender requestSender,
+                         PlatformScheduler scheduler, ServerId self, PillarLogger logger) {
         this.lang = lang;
+        this.configurations = configurations;
         this.presence = presence;
         this.redis = redis;
         this.diagnostics = diagnostics;
         this.requestSender = requestSender;
+        this.scheduler = scheduler;
         this.self = self;
         this.logger = logger;
     }
@@ -54,6 +61,7 @@ public final class PillarCommand implements CommandExecutor {
             case "fleet" -> showFleet(sender);
             case "status" -> showStatus(sender);
             case "ping" -> pingServer(sender, args);
+            case "reload" -> reload(sender);
             default -> sender.sendMessage(render("command.usage"));
         }
         return true;
@@ -99,6 +107,11 @@ public final class PillarCommand implements CommandExecutor {
         }
         
         ServerId target = new ServerId(args[1]);
+        if (target.equals(self)) {
+            sender.sendMessage(render("ping.self"));
+            return;
+        }
+
         if (!presence.fleet().contains(target)) {
             sender.sendMessage(render("ping.unknown_server", Placeholder.unparsed("server", target.value())));
             return;
@@ -108,15 +121,30 @@ public final class PillarCommand implements CommandExecutor {
         long start = System.currentTimeMillis();
 
         requestSender.send(target, ping, Duration.ofSeconds(5)).whenComplete((pong, error) -> {
-            if (error != null) {
-                sender.sendMessage(render("ping.timeout", Placeholder.unparsed("server", target.value())));
-            } else {
-                long latency = System.currentTimeMillis() - start;
-                sender.sendMessage(render("ping.success",
-                        Placeholder.unparsed("server", target.value()),
-                        Placeholder.unparsed("latency", String.valueOf(latency))));
-            }
+            scheduler.runSync(() -> {
+                if (error != null) {
+                    if (error.getMessage() != null && error.getMessage().contains("timed out")) {
+                        sender.sendMessage(render("ping.timeout", Placeholder.unparsed("server", target.value())));
+                    } else {
+                        sender.sendMessage(render("ping.failed", 
+                                Placeholder.unparsed("server", target.value()),
+                                Placeholder.unparsed("message", error.getMessage() != null ? error.getMessage() : "unknown error")));
+                    }
+                } else {
+                    long latency = System.currentTimeMillis() - start;
+                    sender.sendMessage(render("ping.success",
+                            Placeholder.unparsed("server", target.value()),
+                            Placeholder.unparsed("latency", String.valueOf(latency))));
+                }
+            });
         });
+    }
+
+    private void reload(CommandSender sender) {
+        // Refreshes message text and by-path config values; identity, Redis, and the active
+        // locale are startup snapshots and only change on restart.
+        configurations.reloadAll();
+        sender.sendMessage(render("command.reloaded"));
     }
 
     private Component render(String key, TagResolver... placeholders) {

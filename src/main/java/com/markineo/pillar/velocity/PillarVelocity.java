@@ -22,6 +22,7 @@ import com.markineo.pillar.redis.RequestSender;
 import com.markineo.pillar.redis.StreamConsumer;
 import com.markineo.pillar.redis.StreamPublisher;
 import com.markineo.pillar.velocity.command.PillarCommand;
+import com.markineo.pillar.velocity.tasks.VelocityScheduler;
 import com.velocitypowered.api.command.CommandManager;
 import com.velocitypowered.api.command.CommandMeta;
 import com.velocitypowered.api.event.Subscribe;
@@ -96,7 +97,9 @@ public final class PillarVelocity {
 
         CommandManager commands = server.getCommandManager();
         CommandMeta meta = commands.metaBuilder("pillar").plugin(this).build();
-        commands.register(meta, new PillarCommand(lang, presence, redis, new InboxDiagnostics(redis), requestSender, selfId, logger));
+        commands.register(meta, new PillarCommand(
+                lang, configurations, presence, redis, new InboxDiagnostics(redis), requestSender,
+                new VelocityScheduler(), selfId, logger));
 
         logger.info("Pillar initialized as '" + settings.name() + "'.");
     }

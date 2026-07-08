@@ -13,6 +13,7 @@ import com.markineo.pillar.core.task.HandlerRegistry;
 import com.markineo.pillar.error.ConfigurationException;
 import com.markineo.pillar.logger.PillarLogger;
 import com.markineo.pillar.paper.commands.PillarCommand;
+import com.markineo.pillar.paper.tasks.PaperScheduler;
 import com.markineo.pillar.redis.InboxDiagnostics;
 import com.markineo.pillar.redis.JsonEnvelopeCodec;
 import com.markineo.pillar.redis.PingHandler;
@@ -77,8 +78,9 @@ public final class Pillar extends JavaPlugin {
 
         RequestSender requestSender = new RequestSender(publisher, correlations);
 
-        getCommand("pillar").setExecutor(
-                new PillarCommand(lang, presence, redis, new InboxDiagnostics(redis), requestSender, selfId, logger));
+        getCommand("pillar").setExecutor(new PillarCommand(
+                lang, configurations, presence, redis, new InboxDiagnostics(redis), requestSender,
+                new PaperScheduler(this), selfId, logger));
 
         logger.info("Pillar enabled as '" + settings.name() + "' (role " + settings.role() + ").");
     }
