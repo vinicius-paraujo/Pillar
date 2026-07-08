@@ -163,7 +163,7 @@ public final class PillarCommand implements SimpleCommand {
                     .filter(s -> s.startsWith(prefix))
                     .toList();
         } else if (args.length == 2 && args[0].equalsIgnoreCase("ping")) {
-            return presence.fleet().stream()
+            return presence.fleet().members().stream()
                     .map(node -> node.id().value())
                     .filter(s -> s.toLowerCase().startsWith(args[1].toLowerCase()))
                     .toList();
