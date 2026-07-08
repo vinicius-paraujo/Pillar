@@ -15,7 +15,7 @@ connection:
   restored: "<green>Redis connection restored.</green>"
 
 command:
-  usage: "<gray>Usage: <white>/pillar <fleet | status></white></gray>"
+  usage: "<gray>Usage: <white>/pillar <fleet | status | ping <server>></white></gray>"
 
 status:
   connection: "<gray>Connection: <white><state></white></gray>"

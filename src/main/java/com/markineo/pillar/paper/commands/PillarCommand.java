@@ -8,6 +8,10 @@ import com.markineo.pillar.logger.PillarLogger;
 import com.markineo.pillar.redis.InboxDiagnostics;
 import com.markineo.pillar.redis.RedisConnector;
 import com.markineo.pillar.redis.PresenceService;
+import com.markineo.pillar.redis.RequestSender;
+import com.markineo.pillar.core.task.Envelope;
+import com.markineo.pillar.core.task.PillarMessageTypes;
+import java.time.Duration;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
@@ -27,15 +31,17 @@ public final class PillarCommand implements CommandExecutor {
     private final PresenceService presence;
     private final RedisConnector redis;
     private final InboxDiagnostics diagnostics;
+    private final RequestSender requestSender;
     private final ServerId self;
     private final PillarLogger logger;
 
     public PillarCommand(Lang lang, PresenceService presence, RedisConnector redis,
-                         InboxDiagnostics diagnostics, ServerId self, PillarLogger logger) {
+                         InboxDiagnostics diagnostics, RequestSender requestSender, ServerId self, PillarLogger logger) {
         this.lang = lang;
         this.presence = presence;
         this.redis = redis;
         this.diagnostics = diagnostics;
+        this.requestSender = requestSender;
         this.self = self;
         this.logger = logger;
     }
@@ -47,6 +53,7 @@ public final class PillarCommand implements CommandExecutor {
         switch (subcommand) {
             case "fleet" -> showFleet(sender);
             case "status" -> showStatus(sender);
+            case "ping" -> pingServer(sender, args);
             default -> sender.sendMessage(render("command.usage"));
         }
         return true;
@@ -83,6 +90,33 @@ public final class PillarCommand implements CommandExecutor {
                 sender.sendMessage(render("status.log_entry",
                         Placeholder.unparsed("level", entry.level().name()),
                         Placeholder.unparsed("message", entry.message()))));
+    }
+
+    private void pingServer(CommandSender sender, String[] args) {
+        if (args.length < 2) {
+            sender.sendMessage(render("command.usage"));
+            return;
+        }
+        
+        ServerId target = new ServerId(args[1]);
+        if (!presence.fleet().contains(target)) {
+            sender.sendMessage(render("ping.unknown_server", Placeholder.unparsed("server", target.value())));
+            return;
+        }
+
+        Envelope ping = Envelope.request(PillarMessageTypes.PING, self, "{}");
+        long start = System.currentTimeMillis();
+
+        requestSender.send(target, ping, Duration.ofSeconds(5)).whenComplete((pong, error) -> {
+            if (error != null) {
+                sender.sendMessage(render("ping.timeout", Placeholder.unparsed("server", target.value())));
+            } else {
+                long latency = System.currentTimeMillis() - start;
+                sender.sendMessage(render("ping.success",
+                        Placeholder.unparsed("server", target.value()),
+                        Placeholder.unparsed("latency", String.valueOf(latency))));
+            }
+        });
     }
 
     private Component render(String key, TagResolver... placeholders) {

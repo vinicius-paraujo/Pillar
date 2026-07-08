@@ -13,12 +13,17 @@ import com.markineo.pillar.core.task.CorrelationRegistry;
 import com.markineo.pillar.core.task.HandlerRegistry;
 import com.markineo.pillar.error.ConfigurationException;
 import com.markineo.pillar.logger.PillarLogger;
+import com.markineo.pillar.redis.InboxDiagnostics;
 import com.markineo.pillar.redis.JsonEnvelopeCodec;
 import com.markineo.pillar.redis.PingHandler;
 import com.markineo.pillar.redis.PresenceService;
 import com.markineo.pillar.redis.RedisConnector;
+import com.markineo.pillar.redis.RequestSender;
 import com.markineo.pillar.redis.StreamConsumer;
 import com.markineo.pillar.redis.StreamPublisher;
+import com.markineo.pillar.velocity.command.PillarCommand;
+import com.velocitypowered.api.command.CommandManager;
+import com.velocitypowered.api.command.CommandMeta;
 import com.velocitypowered.api.event.Subscribe;
 import com.velocitypowered.api.event.proxy.ProxyInitializeEvent;
 import com.velocitypowered.api.event.proxy.ProxyShutdownEvent;
@@ -86,6 +91,12 @@ public final class PillarVelocity {
 
         this.consumer = new StreamConsumer(redis, codec, selfId, executors, logger, handlers.asSink(codec, logger));
         consumer.start();
+
+        RequestSender requestSender = new RequestSender(publisher, correlations);
+
+        CommandManager commands = server.getCommandManager();
+        CommandMeta meta = commands.metaBuilder("pillar").plugin(this).build();
+        commands.register(meta, new PillarCommand(lang, presence, redis, new InboxDiagnostics(redis), requestSender, selfId, logger));
 
         logger.info("Pillar initialized as '" + settings.name() + "'.");
     }

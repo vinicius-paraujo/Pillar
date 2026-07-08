@@ -18,6 +18,7 @@ import com.markineo.pillar.redis.JsonEnvelopeCodec;
 import com.markineo.pillar.redis.PingHandler;
 import com.markineo.pillar.redis.PresenceService;
 import com.markineo.pillar.redis.RedisConnector;
+import com.markineo.pillar.redis.RequestSender;
 import com.markineo.pillar.redis.StreamConsumer;
 import com.markineo.pillar.redis.StreamPublisher;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -74,8 +75,10 @@ public final class Pillar extends JavaPlugin {
         this.consumer = new StreamConsumer(redis, codec, selfId, executors, logger, handlers.asSink(codec, logger));
         consumer.start();
 
+        RequestSender requestSender = new RequestSender(publisher, correlations);
+
         getCommand("pillar").setExecutor(
-                new PillarCommand(lang, presence, redis, new InboxDiagnostics(redis), selfId, logger));
+                new PillarCommand(lang, presence, redis, new InboxDiagnostics(redis), requestSender, selfId, logger));
 
         logger.info("Pillar enabled as '" + settings.name() + "' (role " + settings.role() + ").");
     }
