@@ -10,3 +10,14 @@ main: com.markineo.pillar.paper.Pillar
 api-version: '26.1'
 author: Markineo
 description: Camada de plataforma da rede Markineo.
+
+commands:
+  pillar:
+    description: Pillar control-plane diagnostics.
+    usage: /pillar <fleet | status>
+    permission: pillar.admin
+
+permissions:
+  pillar.admin:
+    description: Access to Pillar diagnostics commands.
+    default: op

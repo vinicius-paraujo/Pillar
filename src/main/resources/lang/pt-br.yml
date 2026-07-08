@@ -13,3 +13,13 @@ ping:
 connection:
   degraded: "<red>Conexão com o Redis perdida. Operando em modo degradado.</red>"
   restored: "<green>Conexão com o Redis restabelecida.</green>"
+
+command:
+  usage: "<gray>Uso: <white>/pillar <fleet | status></white></gray>"
+
+status:
+  connection: "<gray>Conexão: <white><state></white></gray>"
+  pending: "<gray>Entradas pendentes na caixa: <white><count></white></gray>"
+  log_header: "<gray>Atividade recente:</gray>"
+  log_entry: "<dark_gray>-</dark_gray> <white><level></white> <gray><message></gray>"
+  log_empty: "<gray>Nenhuma atividade recente.</gray>"
