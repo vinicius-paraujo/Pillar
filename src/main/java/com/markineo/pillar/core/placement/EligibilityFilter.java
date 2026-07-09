@@ -11,7 +11,11 @@ public final class EligibilityFilter {
     }
 
     public boolean isEligible(HealthSnapshot snapshot) {
-        if (snapshot.players() >= caps.maxPlayers()) {
+        if ((snapshot.players() + snapshot.pendingSignals()) >= caps.maxPlayers()) {
+            return false;
+        }
+
+        if (snapshot.mspt() >= caps.maxMspt()) {
             return false;
         }
 

@@ -11,23 +11,24 @@ class EligibilityFilterTest {
 
     @Test
     void rejectsInvalidCaps() {
-        assertThrows(IllegalArgumentException.class, () -> new HardCaps(-1, 0.5));
-        assertThrows(IllegalArgumentException.class, () -> new HardCaps(100, -0.1));
-        assertThrows(IllegalArgumentException.class, () -> new HardCaps(100, 1.1));
+        assertThrows(IllegalArgumentException.class, () -> new HardCaps(-1, 0.5, 45.0));
+        assertThrows(IllegalArgumentException.class, () -> new HardCaps(100, -0.1, 45.0));
+        assertThrows(IllegalArgumentException.class, () -> new HardCaps(100, 1.1, 45.0));
+        assertThrows(IllegalArgumentException.class, () -> new HardCaps(100, 0.8, -1.0));
     }
 
     @Test
     void eligibleWhenBelowCaps() {
-        HardCaps caps = new HardCaps(100, 0.8);
+        HardCaps caps = new HardCaps(100, 0.8, 45.0);
         EligibilityFilter filter = new EligibilityFilter(caps);
 
         HealthSnapshot snapshot = new HealthSnapshot(20.0, 50, 100, 50, 2, 0);
-        assertTrue(filter.isEligible(snapshot), "Should be eligible when memory (50%) and players (50) are below caps");
+        assertTrue(filter.isEligible(snapshot), "Should be eligible when memory (50%), players (50), and mspt (20.0) are below caps");
     }
 
     @Test
     void notEligibleWhenExceedingPlayerCap() {
-        HardCaps caps = new HardCaps(100, 0.8);
+        HardCaps caps = new HardCaps(100, 0.8, 45.0);
         EligibilityFilter filter = new EligibilityFilter(caps);
 
         HealthSnapshot snapshot = new HealthSnapshot(20.0, 50, 100, 100, 2, 0);
@@ -38,8 +39,20 @@ class EligibilityFilterTest {
     }
 
     @Test
+    void notEligibleWhenPlayersPlusPendingSignalsExceedsCap() {
+        HardCaps caps = new HardCaps(100, 0.8, 45.0);
+        EligibilityFilter filter = new EligibilityFilter(caps);
+
+        HealthSnapshot snapshot = new HealthSnapshot(20.0, 50, 100, 95, 2, 5);
+        assertFalse(filter.isEligible(snapshot), "Should not be eligible when players (95) + pending signals (5) matches cap (100)");
+
+        HealthSnapshot overSnapshot = new HealthSnapshot(20.0, 50, 100, 95, 2, 6);
+        assertFalse(filter.isEligible(overSnapshot), "Should not be eligible when players (95) + pending signals (6) exceeds cap (100)");
+    }
+
+    @Test
     void notEligibleWhenExceedingMemoryCap() {
-        HardCaps caps = new HardCaps(100, 0.8);
+        HardCaps caps = new HardCaps(100, 0.8, 45.0);
         EligibilityFilter filter = new EligibilityFilter(caps);
 
         HealthSnapshot snapshot = new HealthSnapshot(20.0, 80, 100, 50, 2, 0);
@@ -50,8 +63,20 @@ class EligibilityFilterTest {
     }
 
     @Test
+    void notEligibleWhenExceedingMsptCap() {
+        HardCaps caps = new HardCaps(100, 0.8, 45.0);
+        EligibilityFilter filter = new EligibilityFilter(caps);
+
+        HealthSnapshot snapshot = new HealthSnapshot(45.0, 50, 100, 50, 2, 0);
+        assertFalse(filter.isEligible(snapshot), "Should not be eligible when MSPT matches cap exactly (45.0)");
+
+        HealthSnapshot overSnapshot = new HealthSnapshot(50.0, 50, 100, 50, 2, 0);
+        assertFalse(filter.isEligible(overSnapshot), "Should not be eligible when MSPT exceeds cap (50.0)");
+    }
+
+    @Test
     void protectsAgainstDivisionByZeroWhenMaxMemoryIsZero() {
-        HardCaps caps = new HardCaps(100, 0.8);
+        HardCaps caps = new HardCaps(100, 0.8, 45.0);
         EligibilityFilter filter = new EligibilityFilter(caps);
 
         HealthSnapshot snapshot = new HealthSnapshot(20.0, 0, 0, 50, 2, 0);
