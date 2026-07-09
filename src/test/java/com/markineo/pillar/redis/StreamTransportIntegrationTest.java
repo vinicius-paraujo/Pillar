@@ -10,6 +10,7 @@ import redis.clients.jedis.exceptions.JedisException;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -58,6 +59,149 @@ class StreamTransportIntegrationTest extends RedisIntegrationTest {
     private long pendingCount(ServerId self) {
         try (Jedis jedis = connector.pool().getResource()) {
             return jedis.xpending(RedisKeys.inbox(self), StreamProtocol.CONSUMER_GROUP).getTotal();
+        }
+    }
+
+    @Test
+    void handlerFailureLeavesEntryInPelAndSuccessAcksIt() throws InterruptedException {
+        ServerId self = new ServerId("skyblock-fail");
+        BlockingQueue<Envelope> received = new LinkedBlockingQueue<>();
+
+        StreamConsumer consumer = new StreamConsumer(connector, codec, self, executors, logger, envelope -> {
+            received.add(envelope);
+            if (envelope.type().value().equals("pillar.fail")) {
+                throw new RuntimeException("Intentional handler failure");
+            }
+        });
+
+        consumer.start();
+        try {
+            await("consumer group was never created", () -> groupExists(self));
+
+            // Publish failing message
+            Envelope failRequest = Envelope.request(new MessageType("pillar.fail"), self,
+                    codec.encodePayload(new Ping("fail")));
+            new StreamPublisher(connector, codec).publish(self, failRequest);
+
+            // Wait for delivery
+            Envelope deliveredFail = received.poll(5, TimeUnit.SECONDS);
+            assertNotNull(deliveredFail, "failing message was not consumed");
+
+            // Wait a moment for worker to process exception (async)
+            Thread.sleep(250);
+
+            // Verify PEL still has the entry
+            assertEquals(1, pendingCount(self), "failing message should remain in PEL");
+
+            // Publish successful message
+            Envelope okRequest = Envelope.request(new MessageType("pillar.ok"), self,
+                    codec.encodePayload(new Ping("ok")));
+            new StreamPublisher(connector, codec).publish(self, okRequest);
+
+            // Wait for delivery
+            Envelope deliveredOk = received.poll(5, TimeUnit.SECONDS);
+            assertNotNull(deliveredOk, "successful message was not consumed");
+
+            // Verify successful message is ACKed (PEL count remains 1 from the failed one)
+            await("successful entry was never acked", () -> pendingCount(self) == 1);
+        } finally {
+            consumer.close();
+        }
+    }
+
+    @Test
+    void orphanedPelEntriesAreDrainedOnRestartAndDeadLetteredAfterLimit() throws InterruptedException {
+        ServerId self = new ServerId("skyblock-reclaim");
+        BlockingQueue<Envelope> received = new LinkedBlockingQueue<>();
+        AtomicInteger invocationCount = new AtomicInteger(0);
+
+        // First consumer start
+        StreamConsumer consumer = new StreamConsumer(connector, codec, self, executors, logger, envelope -> {
+            received.add(envelope);
+            invocationCount.incrementAndGet();
+            if (envelope.type().value().equals("pillar.fail")) {
+                throw new RuntimeException("Intentional handler failure");
+            }
+        });
+
+        consumer.start();
+        try {
+            await("consumer group was never created", () -> groupExists(self));
+
+            // Publish failing message
+            Envelope failRequest = Envelope.request(new MessageType("pillar.fail"), self,
+                    codec.encodePayload(new Ping("fail")));
+            new StreamPublisher(connector, codec).publish(self, failRequest);
+
+            // Wait for delivery (attempt 1 - normal consumption)
+            Envelope deliveredFail = received.poll(5, TimeUnit.SECONDS);
+            assertNotNull(deliveredFail, "failing message was not consumed on attempt 1");
+
+            // Wait a moment for worker to process exception (async)
+            Thread.sleep(250);
+
+            // Verify PEL still has the entry
+            assertEquals(1, pendingCount(self), "failing message should remain in PEL");
+        } finally {
+            consumer.close();
+        }
+
+        // Restart 1 (attempt 2 - drained from PEL)
+        received.clear();
+        consumer = new StreamConsumer(connector, codec, self, executors, logger, envelope -> {
+            received.add(envelope);
+            invocationCount.incrementAndGet();
+            throw new RuntimeException("Intentional handler failure");
+        });
+        consumer.start();
+        try {
+            Envelope deliveredFail = received.poll(5, TimeUnit.SECONDS);
+            assertNotNull(deliveredFail, "failing message was not consumed on attempt 2");
+            Thread.sleep(250);
+            assertEquals(1, pendingCount(self), "failing message should remain in PEL");
+        } finally {
+            consumer.close();
+        }
+
+        // Restart 2 (attempt 3 - drained from PEL)
+        received.clear();
+        consumer = new StreamConsumer(connector, codec, self, executors, logger, envelope -> {
+            received.add(envelope);
+            invocationCount.incrementAndGet();
+            throw new RuntimeException("Intentional handler failure");
+        });
+        consumer.start();
+        try {
+            Envelope deliveredFail = received.poll(5, TimeUnit.SECONDS);
+            assertNotNull(deliveredFail, "failing message was not consumed on attempt 3");
+            Thread.sleep(250);
+            assertEquals(1, pendingCount(self), "failing message should remain in PEL");
+        } finally {
+            consumer.close();
+        }
+
+        // Restart 3 (attempt 4 - dead-lettered)
+        // Since attempts is incremented and checked *before* dispatch,
+        // it should hit attempt 4 > MAX_ATTEMPTS (3), log a warning, ACK, and NOT deliver to sink.
+        received.clear();
+        consumer = new StreamConsumer(connector, codec, self, executors, logger, envelope -> {
+            received.add(envelope);
+        });
+        consumer.start();
+        try {
+            // Wait to ensure processing is done
+            Thread.sleep(1000);
+
+            // Should NOT be delivered
+            assertEquals(0, received.size(), "dead-lettered message should not be delivered");
+
+            // Should be removed from PEL
+            assertEquals(0, pendingCount(self), "dead-lettered message should be removed from PEL");
+
+            // Total invocations should be exactly 3
+            assertEquals(3, invocationCount.get(), "Handler should have been invoked exactly 3 times");
+        } finally {
+            consumer.close();
         }
     }
 }

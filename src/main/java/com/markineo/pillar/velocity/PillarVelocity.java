@@ -13,6 +13,8 @@ import com.markineo.pillar.core.task.CorrelationRegistry;
 import com.markineo.pillar.core.task.HandlerRegistry;
 import com.markineo.pillar.error.ConfigurationException;
 import com.markineo.pillar.logger.PillarLogger;
+import com.google.gson.Gson;
+import com.markineo.pillar.redis.HealthService;
 import com.markineo.pillar.redis.InboxDiagnostics;
 import com.markineo.pillar.redis.JsonEnvelopeCodec;
 import com.markineo.pillar.redis.PingHandler;
@@ -47,6 +49,7 @@ public final class PillarVelocity {
     private PillarExecutors executors;
     private RedisConnector redis;
     private PresenceService presence;
+    private HealthService health;
     private ScheduledExecutorService timeoutScheduler;
     private CorrelationRegistry correlations;
     private StreamConsumer consumer;
@@ -93,6 +96,10 @@ public final class PillarVelocity {
         this.consumer = new StreamConsumer(redis, codec, selfId, executors, logger, handlers.asSink(codec, logger));
         consumer.start();
 
+        VelocityHealthProvider healthProvider = new VelocityHealthProvider(server, consumer);
+        this.health = new HealthService(redis, selfId, healthProvider, new Gson(), executors, logger);
+        health.start();
+
         RequestSender requestSender = new RequestSender(publisher, correlations);
 
         CommandManager commands = server.getCommandManager();
@@ -114,6 +121,9 @@ public final class PillarVelocity {
         }
         if (timeoutScheduler != null) {
             timeoutScheduler.shutdownNow();
+        }
+        if (health != null) {
+            health.close();
         }
         if (presence != null) {
             presence.close();

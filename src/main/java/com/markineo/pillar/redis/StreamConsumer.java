@@ -17,6 +17,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.function.Consumer;
 
 public final class StreamConsumer implements AutoCloseable {
@@ -24,6 +25,10 @@ public final class StreamConsumer implements AutoCloseable {
     private static final int BLOCK_MILLIS = 2000;
     private static final int MAX_ENTRIES_PER_READ = 32;
     private static final long BACKOFF_MILLIS = 1000;
+    private static final int MAX_ATTEMPTS = 3;
+
+    private static final int WORKER_POOL_SIZE = 4;
+    private static final int WORKER_QUEUE_CAPACITY = 128;
 
     private final RedisConnector connector;
     private final EnvelopeCodec codec;
@@ -35,6 +40,7 @@ public final class StreamConsumer implements AutoCloseable {
 
     private volatile boolean running;
     private ExecutorService worker;
+    private ThreadPoolExecutor dispatchPool;
 
     public StreamConsumer(RedisConnector connector, EnvelopeCodec codec, ServerId self,
                           PillarExecutors executors, PillarLogger logger, Consumer<Envelope> sink) {
@@ -49,6 +55,7 @@ public final class StreamConsumer implements AutoCloseable {
 
     public void start() {
         this.running = true;
+        this.dispatchPool = executors.newBoundedWorkerPool("dispatch", WORKER_POOL_SIZE, WORKER_QUEUE_CAPACITY);
         this.worker = executors.newSingleThread("stream-consumer");
         worker.submit(this::runLoop);
     }
@@ -56,9 +63,16 @@ public final class StreamConsumer implements AutoCloseable {
     @Override
     public void close() {
         this.running = false;
+        if (dispatchPool != null) {
+            dispatchPool.shutdownNow();
+        }
         if (worker != null) {
             worker.shutdownNow();
         }
+    }
+
+    public int pendingSignals() {
+        return dispatchPool == null ? 0 : dispatchPool.getQueue().size();
     }
 
     private void runLoop() {
@@ -69,12 +83,14 @@ public final class StreamConsumer implements AutoCloseable {
                 if (interruptedDuringBackoff()) {
                     return;
                 }
+
                 continue;
             }
             try {
                 if (!groupEnsured) {
                     ensureConsumerGroup();
                     groupEnsured = true;
+                    drainPendingEntries();
                 }
                 processBatch(readBatch());
             } catch (JedisException e) {
@@ -104,6 +120,60 @@ public final class StreamConsumer implements AutoCloseable {
         }
     }
 
+    private void drainPendingEntries() {
+        StreamEntryID lastId = new StreamEntryID("0-0");
+        String attemptsKey = RedisKeys.attempts(self);
+
+        while (running && connector.isReady()) {
+            try (Jedis jedis = connector.pool().getResource()) {
+                XReadGroupParams readParams = XReadGroupParams.xReadGroupParams().count(MAX_ENTRIES_PER_READ);
+                List<Map.Entry<String, List<StreamEntry>>> streams = jedis.xreadGroup(
+                        StreamProtocol.CONSUMER_GROUP,
+                        self.value(),
+                        readParams,
+                        Map.of(inbox, lastId));
+
+                List<StreamEntry> pending = entriesFrom(streams);
+                if (pending.isEmpty()) {
+                    break;
+                }
+
+                for (StreamEntry entry : pending) {
+                    long attempts = jedis.hincrBy(attemptsKey, entry.getID().toString(), 1);
+
+                    if (attempts > MAX_ATTEMPTS) {
+                        logger.warn("Dead-lettering inbox entry " + entry.getID() + " after " + attempts + " attempts.");
+                        acknowledge(entry.getID());
+                        continue;
+                    }
+
+                    Envelope envelope;
+                    try {
+                        envelope = decodeEntry(entry);
+                    } catch (PillarException poison) {
+                        logger.warn("Discarding undecodable inbox entry " + entry.getID() + ": " + poison.getMessage());
+                        acknowledge(entry.getID());
+                        continue;
+                    }
+
+                    dispatchPool.execute(() -> {
+                        try {
+                            sink.accept(envelope);
+                            acknowledge(entry.getID());
+                        } catch (RuntimeException handlerFailure) {
+                            logger.error("Handler failed for inbox entry " + entry.getID() + " (attempt " + attempts + "); left pending.", handlerFailure);
+                        }
+                    });
+                }
+
+                lastId = pending.getLast().getID();
+            } catch (JedisException e) {
+                logger.warn("Failed to drain PEL: " + e.getMessage());
+                break;
+            }
+        }
+    }
+
     // XREADGROUP returns entries grouped by stream; we subscribe to a single inbox, so
     // flatten to that inbox's entries. A null result means the blocking read timed out
     // with nothing new to deliver.
@@ -119,32 +189,24 @@ public final class StreamConsumer implements AutoCloseable {
     }
 
     private void processBatch(List<StreamEntry> entries) {
-        List<StreamEntryID> settled = new ArrayList<>();
         for (StreamEntry entry : entries) {
-            if (isSettled(entry)) {
-                settled.add(entry.getID());
+            Envelope envelope;
+            try {
+                envelope = decodeEntry(entry);
+            } catch (PillarException poison) {
+                logger.warn("Discarding undecodable inbox entry " + entry.getID() + ": " + poison.getMessage());
+                acknowledge(entry.getID());
+                continue;
             }
-        }
-        acknowledge(settled);
-    }
 
-    // Settled means the entry can be acked: it was delivered to the sink, or it is a
-    // permanently undecodable poison entry we choose to drop. An unsettled entry (a handler
-    // failure that may be transient) stays pending and is recovered later (PIL-40), not lost.
-    private boolean isSettled(StreamEntry entry) {
-        Envelope envelope;
-        try {
-            envelope = decodeEntry(entry);
-        } catch (PillarException poison) {
-            logger.warn("Discarding undecodable inbox entry " + entry.getID() + ": " + poison.getMessage());
-            return true;
-        }
-        try {
-            sink.accept(envelope);
-            return true;
-        } catch (RuntimeException handlerFailure) {
-            logger.error("Handler failed for inbox entry " + entry.getID() + "; left pending.", handlerFailure);
-            return false;
+            dispatchPool.execute(() -> {
+                try {
+                    sink.accept(envelope);
+                    acknowledge(entry.getID());
+                } catch (RuntimeException handlerFailure) {
+                    logger.error("Handler failed for inbox entry " + entry.getID() + "; left pending.", handlerFailure);
+                }
+            });
         }
     }
 
@@ -156,17 +218,23 @@ public final class StreamConsumer implements AutoCloseable {
         return codec.decode(wire);
     }
 
-    private void acknowledge(List<StreamEntryID> ids) {
-        if (ids.isEmpty()) {
+    private void acknowledge(StreamEntryID... ids) {
+        if (ids.length == 0) {
             return;
         }
+        String[] stringIds = new String[ids.length];
+        for (int i = 0; i < ids.length; i++) {
+            stringIds[i] = ids[i].toString();
+        }
+
         try (Jedis jedis = connector.pool().getResource()) {
-            jedis.xack(inbox, StreamProtocol.CONSUMER_GROUP, ids.toArray(new StreamEntryID[0]));
+            jedis.xack(inbox, StreamProtocol.CONSUMER_GROUP, ids);
+            jedis.hdel(RedisKeys.attempts(self), stringIds);
         } catch (JedisException e) {
             // A failed ack (Redis blipped after the batch was processed) is safe to log and
             // move on: the entries stay in the pending list and are reclaimed later (PIL-40).
             // Aborting the loop would not help re-ack, and the next read drives state handling.
-            logger.warn("Failed to ack " + ids.size() + " inbox entries; left pending: " + e.getMessage());
+            logger.warn("Failed to ack " + ids.length + " inbox entries; left pending: " + e.getMessage());
         }
     }
 

@@ -6,6 +6,7 @@ public final class RedisKeys {
 
     private static final String PRESENCE_PREFIX = "pillar:presence:";
     private static final String INBOX_PREFIX = "pillar:inbox:";
+    private static final String HEALTH_PREFIX = "pillar:health:";
 
     private RedisKeys() {
     }
@@ -24,5 +25,13 @@ public final class RedisKeys {
 
     public static String inbox(ServerId id) {
         return INBOX_PREFIX + id.value();
+    }
+
+    public static String attempts(ServerId id) {
+        return "pillar:attempts:" + id.value();
+    }
+
+    public static String health(ServerId id) {
+        return HEALTH_PREFIX + id.value();
     }
 }

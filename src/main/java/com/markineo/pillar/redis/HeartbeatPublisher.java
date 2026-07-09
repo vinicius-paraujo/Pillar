@@ -12,7 +12,7 @@ public final class HeartbeatPublisher {
 
     // TTL outlives several intervals so a single missed beat does not evict a live node;
     // once beats stop entirely, the key expires and the node drops from every fleet view.
-    private static final Duration TTL = INTERVAL.multipliedBy(3);
+    public static final Duration TTL = INTERVAL.multipliedBy(3);
 
     private final RedisConnector connector;
     private final ServerIdentity identity;

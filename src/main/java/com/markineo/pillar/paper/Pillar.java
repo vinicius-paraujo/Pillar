@@ -14,6 +14,8 @@ import com.markineo.pillar.error.ConfigurationException;
 import com.markineo.pillar.logger.PillarLogger;
 import com.markineo.pillar.paper.commands.PillarCommand;
 import com.markineo.pillar.paper.tasks.PaperScheduler;
+import com.google.gson.Gson;
+import com.markineo.pillar.redis.HealthService;
 import com.markineo.pillar.redis.InboxDiagnostics;
 import com.markineo.pillar.redis.JsonEnvelopeCodec;
 import com.markineo.pillar.redis.PingHandler;
@@ -35,6 +37,7 @@ public final class Pillar extends JavaPlugin {
     private PillarExecutors executors;
     private RedisConnector redis;
     private PresenceService presence;
+    private HealthService health;
     private ScheduledExecutorService timeoutScheduler;
     private CorrelationRegistry correlations;
     private StreamConsumer consumer;
@@ -76,6 +79,10 @@ public final class Pillar extends JavaPlugin {
         this.consumer = new StreamConsumer(redis, codec, selfId, executors, logger, handlers.asSink(codec, logger));
         consumer.start();
 
+        PaperHealthProvider healthProvider = new PaperHealthProvider(consumer);
+        this.health = new HealthService(redis, selfId, healthProvider, new Gson(), executors, logger);
+        health.start();
+
         RequestSender requestSender = new RequestSender(publisher, correlations);
 
         getCommand("pillar").setExecutor(new PillarCommand(
@@ -95,6 +102,9 @@ public final class Pillar extends JavaPlugin {
         }
         if (timeoutScheduler != null) {
             timeoutScheduler.shutdownNow();
+        }
+        if (health != null) {
+            health.close();
         }
         if (presence != null) {
             presence.close();
