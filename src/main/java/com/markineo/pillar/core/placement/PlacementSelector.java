@@ -10,6 +10,12 @@ import java.util.function.Function;
 
 public final class PlacementSelector {
 
+    private final ReservationRegistry reservations;
+
+    public PlacementSelector(ReservationRegistry reservations) {
+        this.reservations = reservations;
+    }
+
     public Optional<ServerIdentity> select(List<ServerIdentity> eligibleNodes, Function<ServerIdentity, HealthSnapshot> healthLookup) {
         int size = eligibleNodes.size();
         if (size == 0) {
@@ -34,16 +40,16 @@ public final class PlacementSelector {
         HealthSnapshot health1 = healthLookup.apply(node1);
         HealthSnapshot health2 = healthLookup.apply(node2);
 
-        int score1 = score(health1);
-        int score2 = score(health2);
+        int score1 = score(node1, health1);
+        int score2 = score(node2, health2);
 
         return score1 <= score2 ? Optional.of(node1) : Optional.of(node2);
     }
 
-    private int score(HealthSnapshot snapshot) {
+    private int score(ServerIdentity node, HealthSnapshot snapshot) {
         if (snapshot == null) {
             return Integer.MAX_VALUE;
         }
-        return snapshot.players() + snapshot.pendingSignals();
+        return snapshot.players() + snapshot.pendingSignals() + reservations.activeReservations(node);
     }
 }

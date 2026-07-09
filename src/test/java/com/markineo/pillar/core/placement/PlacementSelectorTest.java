@@ -6,6 +6,8 @@ import com.markineo.pillar.core.identity.ServerIdentity;
 import com.markineo.pillar.core.identity.ServerRole;
 import org.junit.jupiter.api.Test;
 
+import java.time.Clock;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -15,7 +17,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class PlacementSelectorTest {
 
-    private final PlacementSelector selector = new PlacementSelector();
+    private final ReservationRegistry reservations = new ReservationRegistry(Clock.systemUTC(), Duration.ofSeconds(5));
+    private final PlacementSelector selector = new PlacementSelector(reservations);
 
     private ServerIdentity node(String name) {
         return new ServerIdentity(new ServerId(name), new ServerRole("backend"));
@@ -73,5 +76,30 @@ class PlacementSelectorTest {
         assertTrue(result.isPresent());
         // Just verify it returns one of them without throwing
         assertTrue(result.get().equals(node1) || result.get().equals(node2));
+    }
+
+    @Test
+    void includesActiveReservationsInScoreCalculation() {
+        ServerIdentity node1 = node("node-1");
+        ServerIdentity node2 = node("node-2");
+
+        // node1 inherent score: 5+0 = 5
+        // node2 inherent score: 10+0 = 10
+        Map<ServerIdentity, HealthSnapshot> healthMap = Map.of(
+                node1, snapshot(5, 0),
+                node2, snapshot(10, 0)
+        );
+
+        // Add 10 reservations to node1, making its total score 15.
+        for (int i = 0; i < 10; i++) {
+            reservations.reserve(node1);
+        }
+
+        // Now node2 (score 10) should be preferred over node1 (score 15)
+        for (int i = 0; i < 10; i++) {
+            Optional<ServerIdentity> result = selector.select(List.of(node1, node2), healthMap::get);
+            assertTrue(result.isPresent());
+            assertEquals(node2, result.get(), "Should select node2 because 10+0 < 5+0+10(reservations)");
+        }
     }
 }
