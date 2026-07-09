@@ -22,7 +22,7 @@ public final class PlacementSelector {
             return Optional.empty();
         }
         if (size == 1) {
-            return Optional.of(eligibleNodes.get(0));
+            return Optional.of(eligibleNodes.getFirst());
         }
 
         ThreadLocalRandom random = ThreadLocalRandom.current();
@@ -47,9 +47,13 @@ public final class PlacementSelector {
     }
 
     private int score(ServerIdentity node, HealthSnapshot snapshot) {
+        int activeRes = reservations.activeReservations(node);
         if (snapshot == null) {
-            return Integer.MAX_VALUE;
+            // Degraded mode: fallback to least-connections.
+            // Massive base score so dark nodes always lose to healthy ones,
+            // but tie-break among dark nodes purely on active reservations.
+            return 1_000_000_000 + activeRes;
         }
-        return snapshot.players() + snapshot.pendingSignals() + reservations.activeReservations(node);
+        return snapshot.players() + snapshot.pendingSignals() + activeRes;
     }
 }

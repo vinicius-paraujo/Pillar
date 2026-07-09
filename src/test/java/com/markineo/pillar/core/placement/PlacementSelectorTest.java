@@ -102,4 +102,42 @@ class PlacementSelectorTest {
             assertEquals(node2, result.get(), "Should select node2 because 10+0 < 5+0+10(reservations)");
         }
     }
+
+    @Test
+    void prefersNodeWithHealthOverNodeWithoutHealth() {
+        ServerIdentity node1 = node("node-1");
+        ServerIdentity node2 = node("node-2");
+
+        // node1 has no health (dark node), node2 has health but is fully loaded
+        Map<ServerIdentity, HealthSnapshot> healthMap = new java.util.HashMap<>();
+        healthMap.put(node1, null);
+        healthMap.put(node2, snapshot(1000, 100));
+
+        // P2C should absolutely prefer node2 over node1
+        Optional<ServerIdentity> result = selector.select(List.of(node1, node2), healthMap::get);
+        assertTrue(result.isPresent());
+        assertEquals(node2, result.get(), "Should select node2 because a healthy node beats a dark node");
+    }
+
+    @Test
+    void fallsBackToLeastConnectionsWhenBothLackHealth() {
+        ServerIdentity node1 = node("node-1");
+        ServerIdentity node2 = node("node-2");
+
+        // Both are dark nodes
+        Map<ServerIdentity, HealthSnapshot> healthMap = new java.util.HashMap<>();
+        healthMap.put(node1, null);
+        healthMap.put(node2, null);
+
+        // node1 gets 5 reservations, node2 gets 2 reservations
+        for (int i = 0; i < 5; i++) reservations.reserve(node1);
+        for (int i = 0; i < 2; i++) reservations.reserve(node2);
+
+        // P2C should fallback to activeReservations and pick node2
+        for (int i = 0; i < 10; i++) {
+            Optional<ServerIdentity> result = selector.select(List.of(node1, node2), healthMap::get);
+            assertTrue(result.isPresent());
+            assertEquals(node2, result.get(), "Should select node2 on least-connections fallback");
+        }
+    }
 }
