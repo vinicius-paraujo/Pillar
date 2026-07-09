@@ -1,0 +1,77 @@
+package com.markineo.pillar.core.placement;
+
+import com.markineo.pillar.core.health.HealthSnapshot;
+import com.markineo.pillar.core.identity.ServerId;
+import com.markineo.pillar.core.identity.ServerIdentity;
+import com.markineo.pillar.core.identity.ServerRole;
+import org.junit.jupiter.api.Test;
+
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+class PlacementSelectorTest {
+
+    private final PlacementSelector selector = new PlacementSelector();
+
+    private ServerIdentity node(String name) {
+        return new ServerIdentity(new ServerId(name), new ServerRole("backend"));
+    }
+
+    private HealthSnapshot snapshot(int players, int pendingSignals) {
+        return new HealthSnapshot(20.0, 1024L, 4096L, players, 2, pendingSignals);
+    }
+
+    @Test
+    void returnsEmptyWhenNoNodes() {
+        Optional<ServerIdentity> result = selector.select(List.of(), id -> snapshot(0, 0));
+        assertTrue(result.isEmpty());
+    }
+
+    @Test
+    void returnsTheOnlyNodeWhenSizeIsOne() {
+        ServerIdentity node1 = node("node-1");
+        Optional<ServerIdentity> result = selector.select(List.of(node1), id -> snapshot(100, 100));
+        assertTrue(result.isPresent());
+        assertEquals(node1, result.get());
+    }
+
+    @Test
+    void prefersNodeWithLowerScoreWhenTwoNodes() {
+        ServerIdentity node1 = node("node-1");
+        ServerIdentity node2 = node("node-2");
+
+        // node1 has score 15, node2 has score 5
+        Map<ServerIdentity, HealthSnapshot> healthMap = Map.of(
+                node1, snapshot(10, 5),
+                node2, snapshot(2, 3)
+        );
+
+        // Run multiple times to ensure P2C deterministically picks the better node when N=2
+        for (int i = 0; i < 10; i++) {
+            Optional<ServerIdentity> result = selector.select(List.of(node1, node2), healthMap::get);
+            assertTrue(result.isPresent());
+            assertEquals(node2, result.get(), "Should select node2 because 2+3 < 10+5");
+        }
+    }
+
+    @Test
+    void tiesAreResolvedArbitrarilyButDeterministicallyWithinP2C() {
+        ServerIdentity node1 = node("node-1");
+        ServerIdentity node2 = node("node-2");
+
+        // Both have score 10
+        Map<ServerIdentity, HealthSnapshot> healthMap = Map.of(
+                node1, snapshot(5, 5),
+                node2, snapshot(8, 2)
+        );
+
+        Optional<ServerIdentity> result = selector.select(List.of(node1, node2), healthMap::get);
+        assertTrue(result.isPresent());
+        // Just verify it returns one of them without throwing
+        assertTrue(result.get().equals(node1) || result.get().equals(node2));
+    }
+}
