@@ -7,11 +7,13 @@ import java.time.Duration;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
+import java.util.concurrent.atomic.AtomicInteger;
+
 public final class ReservationRegistry {
 
     private final Clock clock;
     private final Duration ttl;
-    private final ConcurrentHashMap<ServerIdentity, ConcurrentLinkedQueue<Long>> reservations;
+    private final ConcurrentHashMap<ServerIdentity, NodeReservations> reservations;
 
     public ReservationRegistry(Clock clock, Duration ttl) {
         this.clock = clock;
@@ -20,23 +22,50 @@ public final class ReservationRegistry {
     }
 
     public void reserve(ServerIdentity node) {
-        reservations.computeIfAbsent(node, k -> new ConcurrentLinkedQueue<>())
-                .offer(clock.millis() + ttl.toMillis());
+        reservations.computeIfAbsent(node, k -> new NodeReservations())
+                .add(clock.millis() + ttl.toMillis());
     }
 
     public int activeReservations(ServerIdentity node) {
-        ConcurrentLinkedQueue<Long> queue = reservations.get(node);
-        if (queue == null || queue.isEmpty()) {
+        NodeReservations nodeReservations = reservations.get(node);
+        if (nodeReservations == null || nodeReservations.isEmpty()) {
             return 0;
         }
 
         long now = clock.millis();
-        
-        // Evict expired
-        while (!queue.isEmpty() && queue.peek() != null && queue.peek() <= now) {
-            queue.poll();
+        nodeReservations.evictExpired(now);
+
+        if (nodeReservations.isEmpty()) {
+            reservations.remove(node, nodeReservations);
         }
 
-        return queue.size();
+        return nodeReservations.size();
+    }
+
+    private static final class NodeReservations {
+        private final ConcurrentLinkedQueue<Long> queue = new ConcurrentLinkedQueue<>();
+        private final AtomicInteger size = new AtomicInteger(0);
+
+        void add(long expirationTimestamp) {
+            queue.offer(expirationTimestamp);
+            size.incrementAndGet();
+        }
+
+        void evictExpired(long now) {
+            while (!queue.isEmpty() && queue.peek() != null && queue.peek() <= now) {
+                Long removed = queue.poll();
+                if (removed != null) {
+                    size.decrementAndGet();
+                }
+            }
+        }
+
+        boolean isEmpty() {
+            return size.get() == 0;
+        }
+
+        int size() {
+            return size.get();
+        }
     }
 }
