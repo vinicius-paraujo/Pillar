@@ -45,9 +45,9 @@ class ReservationRegistryTest {
     }
 
     @Test
-    void cleanUpDeadNodesRemovesEntries() {
+    void cleanUpDeadNodesRemovesEntriesAfterInactivity() {
         MutableClock clock = new MutableClock();
-        ReservationRegistry registry = new ReservationRegistry(clock, Duration.ofSeconds(5));
+        ReservationRegistry registry = new ReservationRegistry(clock, Duration.ofMinutes(5));
 
         ServerIdentity node1 = node("node-1");
         ServerIdentity node2 = node("node-2");
@@ -55,12 +55,24 @@ class ReservationRegistryTest {
         registry.reserve(node1);
         registry.reserve(node2);
 
-        // Simulate fleet heartbeat seeing only node2
-        registry.cleanUpDeadNodes(java.util.Set.of(node2));
+        // Nodes are in aliveNodes, so they aren't removed immediately.
+        registry.cleanUpDeadNodes(java.util.Set.of(node1, node2));
+        assertEquals(1, registry.activeReservations(node1));
+        assertEquals(1, registry.activeReservations(node2));
 
-        // node1 should have 0 active reservations because it was cleaned up
+        // Advance past the 2-minute inactivity threshold
+        clock.advance(Duration.ofMinutes(2).plusSeconds(1));
+
+        // Refresh node2's access time
+        registry.activeReservations(node2);
+
+        // Nodes are still alive, but node1 has been inactive for > 2m
+        registry.cleanUpDeadNodes(java.util.Set.of(node1, node2));
+
+        // node1 should have 0 active reservations because it was cleaned up due to inactivity
         assertEquals(0, registry.activeReservations(node1));
-        // node2 should still have its reservation
+        
+        // node2 should still have its reservation because it was recently accessed
         assertEquals(1, registry.activeReservations(node2));
     }
 

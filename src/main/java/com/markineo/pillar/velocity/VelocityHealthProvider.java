@@ -2,7 +2,7 @@ package com.markineo.pillar.velocity;
 
 import com.markineo.pillar.core.health.HealthProvider;
 import com.markineo.pillar.core.health.HealthSnapshot;
-import com.markineo.pillar.redis.StreamConsumer;
+import com.markineo.pillar.redis.transport.StreamConsumer;
 import com.velocitypowered.api.proxy.ProxyServer;
 
 public final class VelocityHealthProvider implements HealthProvider {

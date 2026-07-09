@@ -6,7 +6,6 @@ import java.time.Clock;
 import java.time.Duration;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
-
 import java.util.concurrent.atomic.AtomicInteger;
 
 public final class ReservationRegistry {
@@ -22,8 +21,10 @@ public final class ReservationRegistry {
     }
 
     public void reserve(ServerIdentity node) {
-        reservations.computeIfAbsent(node, k -> new NodeReservations())
-                .add(clock.millis() + ttl.toMillis());
+        long now = clock.millis();
+        NodeReservations nodeReservations = reservations.computeIfAbsent(node, k -> new NodeReservations(now));
+        nodeReservations.markAccessed(now);
+        nodeReservations.add(now + ttl.toMillis());
     }
 
     public int activeReservations(ServerIdentity node) {
@@ -33,18 +34,35 @@ public final class ReservationRegistry {
         }
 
         long now = clock.millis();
+        nodeReservations.markAccessed(now);
         nodeReservations.evictExpired(now);
 
         return nodeReservations.size();
     }
 
     public void cleanUpDeadNodes(java.util.Set<ServerIdentity> aliveNodes) {
-        reservations.keySet().removeIf(node -> !aliveNodes.contains(node));
+        long expireThreshold = clock.millis() - Duration.ofMinutes(2).toMillis();
+        reservations.entrySet().removeIf(entry -> 
+                !aliveNodes.contains(entry.getKey()) || entry.getValue().getLastAccessTime() < expireThreshold
+        );
     }
 
     private static final class NodeReservations {
         private final ConcurrentLinkedQueue<Long> queue = new ConcurrentLinkedQueue<>();
         private final AtomicInteger size = new AtomicInteger(0);
+        private volatile long lastAccessTime;
+
+        NodeReservations(long now) {
+            this.lastAccessTime = now;
+        }
+
+        void markAccessed(long now) {
+            this.lastAccessTime = now;
+        }
+
+        long getLastAccessTime() {
+            return lastAccessTime;
+        }
 
         void add(long expirationTimestamp) {
             queue.offer(expirationTimestamp);

@@ -1,11 +1,15 @@
-package com.markineo.pillar.redis;
+package com.markineo.pillar.redis.transport;
 
+import com.markineo.pillar.redis.transport.JsonEnvelopeCodec;
+import com.markineo.pillar.redis.RedisIntegrationTest;
+import com.markineo.pillar.redis.RedisKeys;
 import com.markineo.pillar.core.identity.ServerId;
 import com.markineo.pillar.core.task.Envelope;
 import com.markineo.pillar.core.task.MessageType;
 import org.junit.jupiter.api.Test;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.exceptions.JedisException;
+import redis.clients.jedis.StreamEntryID;
 
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -27,7 +31,7 @@ class StreamTransportIntegrationTest extends RedisIntegrationTest {
         ServerId self = new ServerId("skyblock-1");
         BlockingQueue<Envelope> received = new LinkedBlockingQueue<>();
 
-        StreamConsumer consumer = new StreamConsumer(connector, codec, self, executors, logger, received::add);
+        StreamConsumer consumer = new StreamConsumer(connector, codec, self, executors, logger, received::add, java.time.Duration.ofMinutes(10));
         consumer.start();
         try {
             await("consumer group was never created", () -> groupExists(self));
@@ -70,9 +74,9 @@ class StreamTransportIntegrationTest extends RedisIntegrationTest {
         StreamConsumer consumer = new StreamConsumer(connector, codec, self, executors, logger, envelope -> {
             received.add(envelope);
             if (envelope.type().value().equals("pillar.fail")) {
-                throw new RuntimeException("Intentional handler failure");
+                throw new RuntimeException("Simulated first-attempt failure");
             }
-        });
+        }, java.time.Duration.ofMinutes(10));
 
         consumer.start();
         try {
@@ -122,7 +126,7 @@ class StreamTransportIntegrationTest extends RedisIntegrationTest {
             if (envelope.type().value().equals("pillar.fail")) {
                 throw new RuntimeException("Intentional handler failure");
             }
-        });
+        }, java.time.Duration.ofMinutes(10));
 
         consumer.start();
         try {
@@ -152,7 +156,7 @@ class StreamTransportIntegrationTest extends RedisIntegrationTest {
             received.add(envelope);
             invocationCount.incrementAndGet();
             throw new RuntimeException("Intentional handler failure");
-        });
+        }, java.time.Duration.ofMinutes(10));
         consumer.start();
         try {
             Envelope deliveredFail = received.poll(5, TimeUnit.SECONDS);
@@ -169,7 +173,7 @@ class StreamTransportIntegrationTest extends RedisIntegrationTest {
             received.add(envelope);
             invocationCount.incrementAndGet();
             throw new RuntimeException("Intentional handler failure");
-        });
+        }, java.time.Duration.ofMinutes(10));
         consumer.start();
         try {
             Envelope deliveredFail = received.poll(5, TimeUnit.SECONDS);
@@ -180,13 +184,31 @@ class StreamTransportIntegrationTest extends RedisIntegrationTest {
             consumer.close();
         }
 
-        // Restart 3 (attempt 4 - dead-lettered)
+        // Restart 3 (attempt 3 from PEL)
+        received.clear();
+        consumer = new StreamConsumer(connector, codec, self, executors, logger, envelope -> {
+            received.add(envelope);
+            invocationCount.incrementAndGet();
+            throw new RuntimeException("Intentional handler failure");
+        }, java.time.Duration.ofMinutes(10));
+        consumer.start();
+        try {
+            Envelope deliveredFail = received.poll(5, TimeUnit.SECONDS);
+            assertNotNull(deliveredFail, "failing message was not consumed on attempt 4");
+            Thread.sleep(250);
+            assertEquals(1, pendingCount(self), "failing message should remain in PEL");
+        } finally {
+            consumer.close();
+        }
+
+        // Restart 4 (attempt 4 from PEL - dead-lettered!)
         // Since attempts is incremented and checked *before* dispatch,
         // it should hit attempt 4 > MAX_ATTEMPTS (3), log a warning, ACK, and NOT deliver to sink.
         received.clear();
         consumer = new StreamConsumer(connector, codec, self, executors, logger, envelope -> {
             received.add(envelope);
-        });
+            invocationCount.incrementAndGet();
+        }, java.time.Duration.ofMinutes(10));
         consumer.start();
         try {
             // Wait to ensure processing is done
@@ -198,8 +220,48 @@ class StreamTransportIntegrationTest extends RedisIntegrationTest {
             // Should be removed from PEL
             assertEquals(0, pendingCount(self), "dead-lettered message should be removed from PEL");
 
-            // Total invocations should be exactly 3
-            assertEquals(3, invocationCount.get(), "Handler should have been invoked exactly 3 times");
+            // Total invocations should be exactly 4 (Initial + Restart 1 + Restart 2 + Restart 3)
+            assertEquals(4, invocationCount.get(), "Handler should have been invoked exactly 4 times");
+        } finally {
+            consumer.close();
+        }
+    }
+
+    @Test
+    void duplicateMessagesAreIgnoredAndAcked() throws InterruptedException {
+        ServerId self = new ServerId("skyblock-dedup");
+        BlockingQueue<Envelope> received = new LinkedBlockingQueue<>();
+        AtomicInteger invocationCount = new AtomicInteger(0);
+
+        try (Jedis jedis = connector.pool().getResource()) {
+            jedis.xgroupCreate(RedisKeys.inbox(self), StreamProtocol.CONSUMER_GROUP, StreamEntryID.XGROUP_LAST_ENTRY, true);
+            
+            // 1. Manually add a message with a specific ID
+            StreamEntryID specificId = new StreamEntryID("1000000000000-0");
+            Envelope request = Envelope.request(new MessageType("pillar.ping"), self,
+                    codec.encodePayload(new Ping("dedup-test")));
+            
+            jedis.xadd(RedisKeys.inbox(self), specificId, java.util.Map.of(StreamProtocol.FIELD_DATA, codec.encode(request)));
+            
+            // 2. Mark it as already processed (dedup key)
+            jedis.setex(RedisKeys.dedup(self, specificId.toString()), 600, "DONE");
+        } catch (JedisException ignored) { }
+
+        StreamConsumer consumer = new StreamConsumer(connector, codec, self, executors, logger, envelope -> {
+            invocationCount.incrementAndGet();
+            received.add(envelope);
+        }, java.time.Duration.ofMinutes(10));
+        
+        consumer.start();
+        try {
+            // Wait a bit to ensure consumer reads it
+            Thread.sleep(1000);
+
+            // 3. Assert handler was NEVER invoked
+            assertEquals(0, invocationCount.get(), "Handler should not be invoked for a duplicated message");
+            
+            // 4. Assert message was ACKed (removed from PEL)
+            assertEquals(0, pendingCount(self), "Duplicate message should be ACKed");
         } finally {
             consumer.close();
         }

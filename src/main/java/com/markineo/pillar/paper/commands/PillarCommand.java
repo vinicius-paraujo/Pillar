@@ -7,10 +7,10 @@ import com.markineo.pillar.core.fleet.FleetSnapshot;
 import com.markineo.pillar.core.identity.ServerId;
 import com.markineo.pillar.core.identity.ServerIdentity;
 import com.markineo.pillar.logger.PillarLogger;
-import com.markineo.pillar.redis.InboxDiagnostics;
-import com.markineo.pillar.redis.RedisConnector;
-import com.markineo.pillar.redis.PresenceService;
-import com.markineo.pillar.redis.RequestSender;
+import com.markineo.pillar.redis.transport.InboxDiagnostics;
+import com.markineo.pillar.redis.lifecycle.RedisConnector;
+import com.markineo.pillar.redis.presence.PresenceService;
+import com.markineo.pillar.redis.transport.RequestSender;
 import com.markineo.pillar.core.task.Envelope;
 import com.markineo.pillar.core.task.PillarMessageTypes;
 import java.time.Duration;
@@ -71,7 +71,7 @@ public final class PillarCommand implements TabExecutor {
     }
 
     private void showFleet(CommandSender sender) {
-        FleetSnapshot fleet = presence.fleet();
+        FleetSnapshot fleet = presence.cachedFleet();
         sender.sendMessage(render("fleet.header", Placeholder.unparsed("count", Integer.toString(fleet.size()))));
         if (fleet.size() == 0) {
             sender.sendMessage(render("fleet.empty"));
@@ -115,7 +115,7 @@ public final class PillarCommand implements TabExecutor {
             return;
         }
 
-        if (!presence.fleet().contains(target)) {
+        if (!presence.cachedFleet().contains(target)) {
             sender.sendMessage(render("ping.unknown_server", Placeholder.unparsed("server", target.value())));
             return;
         }

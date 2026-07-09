@@ -1,5 +1,6 @@
 package com.markineo.pillar.redis;
 
+import com.markineo.pillar.redis.lifecycle.RedisConnector;
 import com.markineo.pillar.concurrent.PillarExecutors;
 import com.markineo.pillar.config.RedisSettings;
 import com.markineo.pillar.logger.PillarLogger;
@@ -18,7 +19,7 @@ import java.util.function.BooleanSupplier;
 import static org.junit.jupiter.api.Assertions.fail;
 
 @Testcontainers(disabledWithoutDocker = true)
-abstract class RedisIntegrationTest {
+public abstract class RedisIntegrationTest {
 
     private static final int REDIS_PORT = 6379;
 

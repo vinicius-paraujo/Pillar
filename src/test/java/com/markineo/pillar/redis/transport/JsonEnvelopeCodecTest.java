@@ -1,5 +1,6 @@
-package com.markineo.pillar.redis;
+package com.markineo.pillar.redis.transport;
 
+import com.markineo.pillar.redis.transport.JsonEnvelopeCodec;
 import com.markineo.pillar.core.identity.ServerId;
 import com.markineo.pillar.core.task.CorrelationId;
 import com.markineo.pillar.core.task.Envelope;

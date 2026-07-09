@@ -1,4 +1,4 @@
-package com.markineo.pillar.redis;
+package com.markineo.pillar.redis.transport;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -13,7 +13,7 @@ import com.markineo.pillar.core.task.MessageType;
 import com.markineo.pillar.error.PillarException;
 import java.util.Optional;
 
-// Gson is a transitive dep of Jedis 5, already relocated in the shadow jar — zero extra weight.
+// Gson is a transitive dep of Jedis 5, already relocated in the shadow jar â€” zero extra weight.
 // Short field names (v/t/c/s/ts/p) reduce wire size on high-frequency streams.
 public final class JsonEnvelopeCodec implements EnvelopeCodec {
 
@@ -108,7 +108,7 @@ public final class JsonEnvelopeCodec implements EnvelopeCodec {
     @Override
     public <T> T decodePayload(Envelope envelope, Class<T> type) {
         // Class<T> is sufficient for flat objects. When a payload carries a generic
-        // collection (e.g. List<Foo>), a TypeToken overload will be needed — deferred
+        // collection (e.g. List<Foo>), a TypeToken overload will be needed â€” deferred
         // until a concrete case appears (YAGNI).
         try {
             return gson.fromJson(envelope.payload(), type);

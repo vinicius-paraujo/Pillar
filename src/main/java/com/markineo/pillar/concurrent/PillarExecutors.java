@@ -10,6 +10,7 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 
 public final class PillarExecutors {
 
@@ -44,7 +45,9 @@ public final class PillarExecutors {
     }
 
     public ScheduledExecutorService newSingleThreadScheduled(String name) {
-        return Executors.newSingleThreadScheduledExecutor(threadFactory(name));
+        ScheduledThreadPoolExecutor executor = new ScheduledThreadPoolExecutor(1, threadFactory(name));
+        executor.setRemoveOnCancelPolicy(true);
+        return executor;
     }
 
     private ThreadFactory threadFactory(String name) {

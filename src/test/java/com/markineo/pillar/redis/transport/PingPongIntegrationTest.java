@@ -1,5 +1,8 @@
-package com.markineo.pillar.redis;
+package com.markineo.pillar.redis.transport;
 
+import com.markineo.pillar.redis.transport.JsonEnvelopeCodec;
+import com.markineo.pillar.redis.RedisIntegrationTest;
+import com.markineo.pillar.redis.RedisKeys;
 import com.markineo.pillar.core.identity.ServerId;
 import com.markineo.pillar.core.task.CorrelationRegistry;
 import com.markineo.pillar.core.task.Envelope;
@@ -35,12 +38,12 @@ class PingPongIntegrationTest extends RedisIntegrationTest {
         HandlerRegistry betaHandlers = new HandlerRegistry(new CorrelationRegistry(scheduler));
         betaHandlers.register(new PingHandler(beta, publisher, logger));
         StreamConsumer betaConsumer = new StreamConsumer(connector, codec, beta, executors, logger,
-                betaHandlers.asSink(codec, logger));
+                betaHandlers.asSink(codec, logger), java.time.Duration.ofMinutes(10));
 
         // Alpha: routes pongs back to the pending future.
         HandlerRegistry alphaHandlers = new HandlerRegistry(correlations);
         StreamConsumer alphaConsumer = new StreamConsumer(connector, codec, alpha, executors, logger,
-                alphaHandlers.asSink(codec, logger));
+                alphaHandlers.asSink(codec, logger), java.time.Duration.ofMinutes(10));
 
         betaConsumer.start();
         alphaConsumer.start();

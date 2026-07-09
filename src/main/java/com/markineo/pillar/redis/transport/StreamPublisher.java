@@ -1,5 +1,7 @@
-package com.markineo.pillar.redis;
+package com.markineo.pillar.redis.transport;
 
+import com.markineo.pillar.redis.RedisKeys;
+import com.markineo.pillar.redis.lifecycle.RedisConnector;
 import com.markineo.pillar.core.identity.ServerId;
 import com.markineo.pillar.core.task.Envelope;
 import com.markineo.pillar.core.task.EnvelopeCodec;

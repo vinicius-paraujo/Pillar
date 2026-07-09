@@ -1,5 +1,6 @@
-package com.markineo.pillar.redis;
+package com.markineo.pillar.redis.presence;
 
+import com.markineo.pillar.redis.RedisIntegrationTest;
 import com.google.gson.Gson;
 import com.markineo.pillar.core.health.HealthProvider;
 import com.markineo.pillar.core.health.HealthSnapshot;

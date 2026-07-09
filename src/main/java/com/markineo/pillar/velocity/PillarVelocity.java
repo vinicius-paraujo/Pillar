@@ -14,15 +14,15 @@ import com.markineo.pillar.core.task.HandlerRegistry;
 import com.markineo.pillar.error.ConfigurationException;
 import com.markineo.pillar.logger.PillarLogger;
 import com.google.gson.Gson;
-import com.markineo.pillar.redis.HealthService;
-import com.markineo.pillar.redis.InboxDiagnostics;
-import com.markineo.pillar.redis.JsonEnvelopeCodec;
-import com.markineo.pillar.redis.PingHandler;
-import com.markineo.pillar.redis.PresenceService;
-import com.markineo.pillar.redis.RedisConnector;
-import com.markineo.pillar.redis.RequestSender;
-import com.markineo.pillar.redis.StreamConsumer;
-import com.markineo.pillar.redis.StreamPublisher;
+import com.markineo.pillar.redis.presence.HealthService;
+import com.markineo.pillar.redis.transport.InboxDiagnostics;
+import com.markineo.pillar.redis.transport.JsonEnvelopeCodec;
+import com.markineo.pillar.redis.transport.PingHandler;
+import com.markineo.pillar.redis.presence.PresenceService;
+import com.markineo.pillar.redis.lifecycle.RedisConnector;
+import com.markineo.pillar.redis.transport.RequestSender;
+import com.markineo.pillar.redis.transport.StreamConsumer;
+import com.markineo.pillar.redis.transport.StreamPublisher;
 import com.markineo.pillar.core.placement.ReservationRegistry;
 import com.markineo.pillar.velocity.command.PillarCommand;
 import com.markineo.pillar.velocity.tasks.VelocityScheduler;
@@ -94,7 +94,7 @@ public final class PillarVelocity {
         HandlerRegistry handlers = new HandlerRegistry(correlations);
         handlers.register(new PingHandler(selfId, publisher, logger));
 
-        this.consumer = new StreamConsumer(redis, codec, selfId, executors, logger, handlers.asSink(codec, logger));
+        this.consumer = new StreamConsumer(redis, codec, selfId, executors, logger, handlers.asSink(codec, logger), java.time.Duration.ofMinutes(10));
         consumer.start();
 
         VelocityHealthProvider healthProvider = new VelocityHealthProvider(server, consumer);

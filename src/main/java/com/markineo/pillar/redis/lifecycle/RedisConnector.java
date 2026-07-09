@@ -1,5 +1,7 @@
-package com.markineo.pillar.redis;
+package com.markineo.pillar.redis.lifecycle;
 
+import com.markineo.pillar.redis.lifecycle.ConnectionState;
+import com.markineo.pillar.redis.lifecycle.RedisConnector;
 import com.markineo.pillar.concurrent.PillarExecutors;
 import com.markineo.pillar.config.RedisSettings;
 import com.markineo.pillar.logger.PillarLogger;

@@ -2,7 +2,7 @@ package com.markineo.pillar.paper;
 
 import com.markineo.pillar.core.health.HealthProvider;
 import com.markineo.pillar.core.health.HealthSnapshot;
-import com.markineo.pillar.redis.StreamConsumer;
+import com.markineo.pillar.redis.transport.StreamConsumer;
 import org.bukkit.Bukkit;
 
 public final class PaperHealthProvider implements HealthProvider {

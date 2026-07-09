@@ -1,5 +1,7 @@
-package com.markineo.pillar.redis;
+package com.markineo.pillar.redis.presence;
 
+import com.markineo.pillar.redis.RedisKeys;
+import com.markineo.pillar.redis.lifecycle.RedisConnector;
 import com.google.gson.Gson;
 import com.markineo.pillar.core.health.HealthProvider;
 import com.markineo.pillar.core.health.HealthSnapshot;

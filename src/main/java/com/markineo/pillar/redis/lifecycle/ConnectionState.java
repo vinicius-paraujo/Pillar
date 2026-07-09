@@ -1,5 +1,6 @@
-package com.markineo.pillar.redis;
+package com.markineo.pillar.redis.lifecycle;
 
+import com.markineo.pillar.redis.lifecycle.ConnectionState;
 public enum ConnectionState {
 
     // Pool created, first reachability check not yet passed.

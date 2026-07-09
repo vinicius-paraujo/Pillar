@@ -11,6 +11,10 @@ public final class EligibilityFilter {
     }
 
     public boolean isEligible(HealthSnapshot snapshot) {
+        if (snapshot == null) {
+            return true; // Delega o nó cego para o PlacementSelector aplicar a penalidade (PIL-24)
+        }
+
         if ((snapshot.players() + snapshot.pendingSignals()) >= caps.maxPlayers()) {
             return false;
         }

@@ -1,5 +1,6 @@
 package com.markineo.pillar.redis;
 
+import com.markineo.pillar.redis.RedisKeys;
 import com.markineo.pillar.core.identity.ServerId;
 
 public final class RedisKeys {
@@ -33,5 +34,9 @@ public final class RedisKeys {
 
     public static String health(ServerId id) {
         return HEALTH_PREFIX + id.value();
+    }
+
+    public static String dedup(ServerId id, String messageId) {
+        return "pillar:dedup:" + id.value() + ":" + messageId;
     }
 }
