@@ -59,7 +59,7 @@ Pillar/gradlew.bat -p Pillar shadowJar     # Windows
 ./gradlew -p Pillar shadowJar              # *nix
 ```
 
-The shaded plugin lands at `Pillar/build/libs/Pillar-1.0.0.jar`. Drop it into the
+The shaded plugin lands at `Pillar/build/libs/Pillar-0.1.0.jar`. Drop it into the
 `plugins/` folder of each Paper server and the Velocity proxy.
 
 To compile without packaging (the standard inner-loop check):
