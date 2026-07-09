@@ -35,10 +35,6 @@ public final class ReservationRegistry {
         long now = clock.millis();
         nodeReservations.evictExpired(now);
 
-        if (nodeReservations.isEmpty()) {
-            reservations.remove(node, nodeReservations);
-        }
-
         return nodeReservations.size();
     }
 
