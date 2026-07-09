@@ -20,6 +20,7 @@ public final class PresenceService implements AutoCloseable {
     private volatile FleetSnapshot cachedFleet = FleetSnapshot.empty();
 
     private ScheduledExecutorService heartbeat;
+    private final java.util.List<java.util.function.Consumer<FleetSnapshot>> updateListeners = new java.util.concurrent.CopyOnWriteArrayList<>();
 
     public PresenceService(RedisConnector connector, ServerIdentity identity,
                            PillarExecutors executors, PillarLogger logger) {
@@ -27,6 +28,10 @@ public final class PresenceService implements AutoCloseable {
         this.fleetView = new FleetView(connector);
         this.executors = executors;
         this.logger = logger;
+    }
+
+    public void onUpdate(java.util.function.Consumer<FleetSnapshot> listener) {
+        this.updateListeners.add(listener);
     }
 
     public void start() {
@@ -59,7 +64,15 @@ public final class PresenceService implements AutoCloseable {
     private void tick() {
         try {
             publisher.publish();
-            cachedFleet = fleetView.snapshot();
+            FleetSnapshot newFleet = fleetView.snapshot();
+            cachedFleet = newFleet;
+            updateListeners.forEach(listener -> {
+                try {
+                    listener.accept(newFleet);
+                } catch (RuntimeException e) {
+                    logger.error("Fleet update listener failed", e);
+                }
+            });
         } catch (RuntimeException e) {
             logger.error("Presence tick failed; heartbeat continues on the next interval.", e);
         }

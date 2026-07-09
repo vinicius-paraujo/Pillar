@@ -38,6 +38,10 @@ public final class ReservationRegistry {
         return nodeReservations.size();
     }
 
+    public void cleanUpDeadNodes(java.util.Set<ServerIdentity> aliveNodes) {
+        reservations.keySet().removeIf(node -> !aliveNodes.contains(node));
+    }
+
     private static final class NodeReservations {
         private final ConcurrentLinkedQueue<Long> queue = new ConcurrentLinkedQueue<>();
         private final AtomicInteger size = new AtomicInteger(0);
@@ -47,7 +51,7 @@ public final class ReservationRegistry {
             size.incrementAndGet();
         }
 
-        void evictExpired(long now) {
+        synchronized void evictExpired(long now) {
             while (!queue.isEmpty() && queue.peek() != null && queue.peek() <= now) {
                 Long removed = queue.poll();
                 if (removed != null) {

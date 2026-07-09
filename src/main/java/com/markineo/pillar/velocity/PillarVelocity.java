@@ -23,6 +23,7 @@ import com.markineo.pillar.redis.RedisConnector;
 import com.markineo.pillar.redis.RequestSender;
 import com.markineo.pillar.redis.StreamConsumer;
 import com.markineo.pillar.redis.StreamPublisher;
+import com.markineo.pillar.core.placement.ReservationRegistry;
 import com.markineo.pillar.velocity.command.PillarCommand;
 import com.markineo.pillar.velocity.tasks.VelocityScheduler;
 import com.velocitypowered.api.command.CommandManager;
@@ -99,6 +100,9 @@ public final class PillarVelocity {
         VelocityHealthProvider healthProvider = new VelocityHealthProvider(server, consumer);
         this.health = new HealthService(redis, selfId, healthProvider, new Gson(), executors, logger);
         health.start();
+
+        ReservationRegistry reservationRegistry = new ReservationRegistry(java.time.Clock.systemUTC(), java.time.Duration.ofSeconds(5));
+        presence.onUpdate(fleet -> reservationRegistry.cleanUpDeadNodes(java.util.Set.copyOf(fleet.members())));
 
         RequestSender requestSender = new RequestSender(publisher, correlations);
 

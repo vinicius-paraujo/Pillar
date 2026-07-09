@@ -44,6 +44,26 @@ class ReservationRegistryTest {
         assertEquals(0, registry.activeReservations(node));
     }
 
+    @Test
+    void cleanUpDeadNodesRemovesEntries() {
+        MutableClock clock = new MutableClock();
+        ReservationRegistry registry = new ReservationRegistry(clock, Duration.ofSeconds(5));
+
+        ServerIdentity node1 = node("node-1");
+        ServerIdentity node2 = node("node-2");
+
+        registry.reserve(node1);
+        registry.reserve(node2);
+
+        // Simulate fleet heartbeat seeing only node2
+        registry.cleanUpDeadNodes(java.util.Set.of(node2));
+
+        // node1 should have 0 active reservations because it was cleaned up
+        assertEquals(0, registry.activeReservations(node1));
+        // node2 should still have its reservation
+        assertEquals(1, registry.activeReservations(node2));
+    }
+
     private static class MutableClock extends Clock {
         private Instant current = Instant.now();
 
