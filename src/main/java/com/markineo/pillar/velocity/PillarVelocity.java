@@ -26,7 +26,9 @@ import com.markineo.pillar.redis.transport.RequestSender;
 import com.markineo.pillar.redis.transport.StreamConsumer;
 import com.markineo.pillar.redis.transport.StreamPublisher;
 import com.markineo.pillar.velocity.command.PillarCommand;
+import com.markineo.pillar.velocity.handler.BroadcastHandler;
 import com.markineo.pillar.velocity.handler.RoutePlayerHandler;
+import com.markineo.pillar.velocity.handler.SendPlayerMessageHandler;
 import com.markineo.pillar.velocity.listener.LoginListener;
 import com.markineo.pillar.velocity.tasks.VelocityScheduler;
 import com.markineo.pillar.core.placement.EligibilityFilter;
@@ -116,6 +118,8 @@ public final class PillarVelocity {
         HandlerRegistry handlers = new HandlerRegistry(correlations);
         handlers.register(new PingHandler(selfId, publisher, logger));
         handlers.register(new RoutePlayerHandler(server, placement, presence, healthRegistry, publisher, selfId, gson, logger));
+        handlers.register(new SendPlayerMessageHandler(server, gson, logger));
+        handlers.register(new BroadcastHandler(server, gson, logger));
 
         this.consumer = new StreamConsumer(redis, codec, selfId, executors, logger, handlers.asSink(codec, logger), 
                                            settings.consumerDedupWindow(), settings.consumerPoolSize(), settings.consumerQueueCapacity());

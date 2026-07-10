@@ -81,7 +81,7 @@ public final class RedisConnector implements AutoCloseable {
         if (!isReady()) {
             return Optional.empty();
         }
-        
+
         try (Jedis jedis = getResource()) {
             return Optional.ofNullable(action.apply(jedis));
         } catch (JedisException e) {
