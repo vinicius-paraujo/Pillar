@@ -133,7 +133,7 @@ public final class PillarVelocity {
                 lang, configurations, presence, redis, new InboxDiagnostics(redis), requestSender,
                 new VelocityScheduler(), selfId, logger));
 
-        // Placement (Login Routing)
+        // Login event listener
         server.getEventManager().register(this, new LoginListener(
                 server, placement, presence, healthRegistry, settings, lang, logger
         ));

@@ -60,7 +60,7 @@ public final class RoutePlayerHandler implements MessageHandler {
         try {
             request = gson.fromJson(envelope.payload(), RoutePlayerRequest.class);
         } catch (Exception e) {
-            logger.error("Failed to parse RoutePlayerRequest from envelope " + envelope.correlationId().map(c -> c.value()).orElse("none"), e);
+            logger.error("Failed to parse RoutePlayerRequest from envelope " + envelope.correlationId().map(com.markineo.pillar.core.task.CorrelationId::value).orElse("none"), e);
             return;
         }
 
@@ -78,6 +78,7 @@ public final class RoutePlayerHandler implements MessageHandler {
             if (srv.isPresent()) {
                 targetServer = srv.get();
             } else {
+                logger.warn("Failed to route player " + player.getUsername() + " to server " + request.targetServerId() + ": server unknown to proxy.");
                 reply(envelope, RouteOutcome.UNKNOWN_TARGET);
                 return;
             }
@@ -92,10 +93,12 @@ public final class RoutePlayerHandler implements MessageHandler {
                 if (srv.isPresent()) {
                     targetServer = srv.get();
                 } else {
+                    logger.warn("Failed to route player " + player.getUsername() + " to server " + chosen.id().value() + " (chosen for role " + request.targetRole() + "): server unknown to proxy.");
                     reply(envelope, RouteOutcome.UNKNOWN_TARGET);
                     return;
                 }
             } catch (NoEligibleNodeException e) {
+                logger.warn("Failed to place player " + player.getUsername() + " on role " + request.targetRole() + ": no eligible node.");
                 reply(envelope, RouteOutcome.NO_ELIGIBLE_NODE);
                 return;
             }
@@ -105,13 +108,19 @@ public final class RoutePlayerHandler implements MessageHandler {
             return;
         }
 
-        player.createConnectionRequest(targetServer).connect().whenComplete((result, ex) -> {
+        // Note on failure window: The StreamConsumer XACKs the message as soon as this handle() method returns.
+        // Because connect() is asynchronous, handle() returns immediately, meaning XACK happens before the reply is published.
+        // If the proxy crashes in the millisecond window between XACK and this whenComplete callback, the caller will never receive
+        // the response and will eventually time out. This is an acceptable MVP trade-off to avoid blocking the dispatch thread.
+        final RegisteredServer finalTarget = targetServer;
+        player.createConnectionRequest(finalTarget).connect().whenComplete((result, ex) -> {
             if (ex != null) {
                 logger.error("Connection request failed for player " + player.getUsername(), ex);
                 reply(envelope, RouteOutcome.CONNECTION_FAILED);
                 return;
             }
             if (result.isSuccessful()) {
+                logger.debug("Routed player " + player.getUsername() + " to " + finalTarget.getServerInfo().getName() + ".");
                 reply(envelope, RouteOutcome.SUCCESS);
             } else {
                 reply(envelope, RouteOutcome.CONNECTION_FAILED);
