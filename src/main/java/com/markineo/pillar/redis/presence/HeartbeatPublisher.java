@@ -25,15 +25,6 @@ public final class HeartbeatPublisher {
     }
 
     public void publish() {
-        if (!connector.isReady()) {
-            return;
-        }
-        try (Jedis jedis = connector.pool().getResource()) {
-            jedis.setex(RedisKeys.presence(identity.id()), TTL.toSeconds(), identity.role().value());
-        } catch (JedisException e) {
-            // A dropped beat is safe to skip: the connector's health loop owns the state
-            // transition, and the TTL evicts this node if the outage persists. Logging here
-            // would spam once per interval during an outage the connector already reported.
-        }
+        connector.withResource(jedis -> jedis.setex(RedisKeys.presence(identity.id()), TTL.toSeconds(), identity.role().value()));
     }
 }

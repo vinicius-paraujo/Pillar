@@ -42,7 +42,7 @@ public abstract class RedisIntegrationTest {
         connector.start();
         awaitReady();
 
-        try (Jedis jedis = connector.pool().getResource()) {
+        try (Jedis jedis = connector.getResource()) {
             jedis.flushAll();
         }
     }

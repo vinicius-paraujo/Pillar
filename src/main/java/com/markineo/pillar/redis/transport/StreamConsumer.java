@@ -116,7 +116,7 @@ public final class StreamConsumer implements AutoCloseable, SignalTracker {
     }
 
     private List<StreamEntry> readBatch() {
-        try (Jedis jedis = connector.pool().getResource()) {
+        try (Jedis jedis = connector.getResource()) {
             XReadGroupParams readParams = XReadGroupParams.xReadGroupParams()
                     .count(MAX_ENTRIES_PER_READ)
                     .block(BLOCK_MILLIS);
@@ -136,7 +136,7 @@ public final class StreamConsumer implements AutoCloseable, SignalTracker {
 
         while (running && connector.isReady()) {
             List<StreamEntry> pending;
-            try (Jedis jedis = connector.pool().getResource()) {
+            try (Jedis jedis = connector.getResource()) {
                 XReadGroupParams readParams = XReadGroupParams.xReadGroupParams().count(MAX_ENTRIES_PER_READ);
                 List<Map.Entry<String, List<StreamEntry>>> streams = jedis.xreadGroup(
                         StreamProtocol.CONSUMER_GROUP,
@@ -180,7 +180,7 @@ public final class StreamConsumer implements AutoCloseable, SignalTracker {
         } catch (PillarException poison) {
             logger.warn("Discarding undecodable inbox entry " + entry.getID() + ": " + poison.getMessage());
             dispatchPool.execute(() -> {
-                try (Jedis jedis = connector.pool().getResource()) {
+                try (Jedis jedis = connector.getResource()) {
                     acknowledgeAndClean(jedis, entry.getID());
                 } catch (JedisException e) {
                     logger.warn("Failed to clean poison entry " + entry.getID() + ": " + e.getMessage());
@@ -195,7 +195,7 @@ public final class StreamConsumer implements AutoCloseable, SignalTracker {
     }
 
     private void processSafely(StreamEntry entry, Envelope envelope, boolean isPel) {
-        try (Jedis jedis = connector.pool().getResource()) {
+        try (Jedis jedis = connector.getResource()) {
             long attempt = trackAttempt(jedis, entry, isPel);
             if (attempt > MAX_ATTEMPTS) {
                 return;
@@ -277,7 +277,7 @@ public final class StreamConsumer implements AutoCloseable, SignalTracker {
     }
 
     private void ensureConsumerGroup() {
-        try (Jedis jedis = connector.pool().getResource()) {
+        try (Jedis jedis = connector.getResource()) {
             // MKSTREAM creates the inbox on first use; XGROUP_LAST_ENTRY ($) means the group
             // only sees messages published after it exists — history predating this node is
             // irrelevant to a fresh consumer.

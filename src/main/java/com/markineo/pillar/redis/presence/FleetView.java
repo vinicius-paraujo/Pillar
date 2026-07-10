@@ -24,20 +24,13 @@ public final class FleetView {
     }
 
     public FleetSnapshot snapshot() {
-        if (!connector.isReady()) {
-            return FleetSnapshot.empty();
-        }
-        try (Jedis jedis = connector.pool().getResource()) {
+        return connector.withResource(jedis -> {
             List<String> keys = scanPresenceKeys(jedis);
             if (keys.isEmpty()) {
                 return FleetSnapshot.empty();
             }
             return buildSnapshot(keys, jedis.mget(keys.toArray(new String[0])));
-        } catch (JedisException e) {
-            // A degraded read yields an empty view rather than a failure; the connector's
-            // health loop owns the state transition and presence resumes on reconnect.
-            return FleetSnapshot.empty();
-        }
+        }).orElse(FleetSnapshot.empty());
     }
 
     private List<String> scanPresenceKeys(Jedis jedis) {

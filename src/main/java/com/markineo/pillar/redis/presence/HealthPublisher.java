@@ -24,17 +24,10 @@ public final class HealthPublisher {
     }
 
     public void publish() {
-        if (!connector.isReady()) {
-            return;
-        }
         HealthSnapshot current = provider.current();
         String json = gson.toJson(current);
         long ttlSeconds = HeartbeatPublisher.TTL.toSeconds();
 
-        try (Jedis jedis = connector.pool().getResource()) {
-            jedis.setex(RedisKeys.health(self), ttlSeconds, json);
-        } catch (JedisException e) {
-            // Like HeartbeatPublisher, transient redis faults are owned by the connector.
-        }
+        connector.withResource(jedis -> jedis.setex(RedisKeys.health(self), ttlSeconds, json));
     }
 }

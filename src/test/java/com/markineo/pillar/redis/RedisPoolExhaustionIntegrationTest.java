@@ -58,12 +58,12 @@ class RedisPoolExhaustionIntegrationTest {
     void exhaustedPoolFailsFastInsteadOfBlockingForever() {
         List<Jedis> held = new ArrayList<>();
         for (int i = 0; i < MAX_TOTAL; i++) {
-            held.add(connector.pool().getResource());
+            held.add(connector.getResource());
         }
 
         try {
             long start = System.nanoTime();
-            assertThrows(JedisException.class, () -> connector.pool().getResource());
+            assertThrows(JedisException.class, () -> connector.getResource());
             long elapsedMillis = (System.nanoTime() - start) / 1_000_000;
 
             assertTrue(elapsedMillis < MAX_WAIT.toMillis() + 2000,

@@ -14,7 +14,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-public final class HealthView {
+public class HealthView {
 
     private final RedisConnector connector;
     private final Gson gson;
@@ -25,31 +25,30 @@ public final class HealthView {
     }
 
     public Optional<HealthSnapshot> fetch(ServerId id) {
-        if (!connector.isReady()) {
-            return Optional.empty();
-        }
-        try (Jedis jedis = connector.pool().getResource()) {
+        return connector.withResource(jedis -> {
             String json = jedis.get(RedisKeys.health(id));
             if (json == null) {
-                return Optional.empty();
+                return null;
             }
-            return Optional.of(gson.fromJson(json, HealthSnapshot.class));
-        } catch (JedisException | com.google.gson.JsonSyntaxException e) {
-            return Optional.empty();
-        }
+            try {
+                return gson.fromJson(json, HealthSnapshot.class);
+            } catch (com.google.gson.JsonSyntaxException e) {
+                return null;
+            }
+        });
     }
 
     public Map<ServerId, HealthSnapshot> fetchAll(Collection<ServerId> ids) {
-        if (!connector.isReady() || ids.isEmpty()) {
+        if (ids.isEmpty()) {
             return Map.of();
         }
-        ServerId[] idArray = ids.toArray(new ServerId[0]);
-        String[] keys = new String[idArray.length];
-        for (int i = 0; i < idArray.length; i++) {
-            keys[i] = RedisKeys.health(idArray[i]);
-        }
+        return connector.withResource(jedis -> {
+            ServerId[] idArray = ids.toArray(new ServerId[0]);
+            String[] keys = new String[idArray.length];
+            for (int i = 0; i < idArray.length; i++) {
+                keys[i] = RedisKeys.health(idArray[i]);
+            }
 
-        try (Jedis jedis = connector.pool().getResource()) {
             List<String> values = jedis.mget(keys);
             Map<ServerId, HealthSnapshot> result = new HashMap<>();
             for (int i = 0; i < idArray.length; i++) {
@@ -63,8 +62,6 @@ public final class HealthView {
                 }
             }
             return result;
-        } catch (JedisException e) {
-            return Map.of();
-        }
+        }).orElse(Map.of());
     }
 }

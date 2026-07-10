@@ -52,7 +52,7 @@ class StreamTransportIntegrationTest extends RedisIntegrationTest {
     }
 
     private boolean groupExists(ServerId self) {
-        try (Jedis jedis = connector.pool().getResource()) {
+        try (Jedis jedis = connector.getResource()) {
             return jedis.xinfoGroups(RedisKeys.inbox(self)).stream()
                     .anyMatch(group -> StreamProtocol.CONSUMER_GROUP.equals(group.getName()));
         } catch (JedisException streamNotCreatedYet) {
@@ -61,7 +61,7 @@ class StreamTransportIntegrationTest extends RedisIntegrationTest {
     }
 
     private long pendingCount(ServerId self) {
-        try (Jedis jedis = connector.pool().getResource()) {
+        try (Jedis jedis = connector.getResource()) {
             return jedis.xpending(RedisKeys.inbox(self), StreamProtocol.CONSUMER_GROUP).getTotal();
         }
     }
@@ -233,7 +233,7 @@ class StreamTransportIntegrationTest extends RedisIntegrationTest {
         BlockingQueue<Envelope> received = new LinkedBlockingQueue<>();
         AtomicInteger invocationCount = new AtomicInteger(0);
 
-        try (Jedis jedis = connector.pool().getResource()) {
+        try (Jedis jedis = connector.getResource()) {
             jedis.xgroupCreate(RedisKeys.inbox(self), StreamProtocol.CONSUMER_GROUP, StreamEntryID.XGROUP_LAST_ENTRY, true);
             
             // 1. Manually add a message with a specific ID

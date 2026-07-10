@@ -69,7 +69,7 @@ class PingPongIntegrationTest extends RedisIntegrationTest {
     }
 
     private boolean groupExists(ServerId node) {
-        try (var jedis = connector.pool().getResource()) {
+        try (var jedis = connector.getResource()) {
             return jedis.xinfoGroups(RedisKeys.inbox(node)).stream()
                     .anyMatch(group -> StreamProtocol.CONSUMER_GROUP.equals(group.getName()));
         } catch (Exception streamNotCreatedYet) {

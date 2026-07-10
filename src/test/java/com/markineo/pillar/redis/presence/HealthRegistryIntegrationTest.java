@@ -1,0 +1,85 @@
+package com.markineo.pillar.redis.presence;
+
+import com.google.gson.Gson;
+import com.markineo.pillar.concurrent.PillarExecutors;
+import com.markineo.pillar.core.health.HealthProvider;
+import com.markineo.pillar.core.health.HealthSnapshot;
+import com.markineo.pillar.core.identity.ServerId;
+import com.markineo.pillar.core.identity.ServerIdentity;
+import com.markineo.pillar.core.identity.ServerRole;
+import com.markineo.pillar.logger.PillarLogger;
+import com.markineo.pillar.redis.RedisIntegrationTest;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.slf4j.LoggerFactory;
+
+import java.time.Duration;
+import java.util.Map;
+import java.util.Optional;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+class HealthRegistryIntegrationTest extends RedisIntegrationTest {
+
+    private PillarExecutors executors;
+    private PillarLogger logger;
+    private Gson gson;
+
+    private PresenceService alphaPresence;
+    private HealthService alphaHealth;
+
+    private HealthRegistry proxyRegistry;
+
+    @BeforeEach
+    void setUpRegistry() {
+        executors = new PillarExecutors(new PillarLogger(LoggerFactory.getLogger("test")));
+        logger = new PillarLogger(LoggerFactory.getLogger("test"));
+        gson = new Gson();
+
+        // Alpha node (mock game server) starts presence and health
+        ServerId alphaId = new ServerId("alpha");
+        ServerIdentity alphaIdentity = new ServerIdentity(alphaId, new ServerRole("hub"));
+
+        alphaPresence = new PresenceService(connector, alphaIdentity, executors, logger);
+        alphaPresence.start();
+
+        HealthProvider stubProvider = () -> new HealthSnapshot(45.0, 1024L, 4096L, 10, 3, 0);
+        alphaHealth = new HealthService(connector, alphaId, stubProvider, gson, executors, logger, Duration.ofMillis(100));
+        alphaHealth.start();
+
+        // Proxy node starts its own PresenceService and HealthRegistry
+        ServerId proxyId = new ServerId("proxy-1");
+        ServerIdentity proxyIdentity = new ServerIdentity(proxyId, new ServerRole("proxy"));
+
+        PresenceService proxyPresence = new PresenceService(connector, proxyIdentity, executors, logger);
+        proxyPresence.start();
+
+        HealthView healthView = new HealthView(connector, gson);
+        proxyRegistry = new HealthRegistry(proxyPresence, healthView, executors, logger, Duration.ofMillis(100));
+        proxyRegistry.start();
+    }
+
+    @AfterEach
+    void tearDownRegistry() {
+        if (proxyRegistry != null) proxyRegistry.close();
+        if (alphaHealth != null) alphaHealth.close();
+        if (alphaPresence != null) alphaPresence.close();
+    }
+
+    @Test
+    void registryFetchesHealthOfAliveNode() throws InterruptedException {
+        // Wait for presence and health loops to tick
+        Thread.sleep(300);
+
+        Map<ServerId, HealthSnapshot> snapshot = proxyRegistry.snapshot();
+        assertFalse(snapshot.isEmpty(), "Health registry should have fetched the snapshot");
+
+        ServerId alphaId = new ServerId("alpha");
+        assertTrue(snapshot.containsKey(alphaId));
+
+        HealthSnapshot alphaSnapshot = snapshot.get(alphaId);
+        assertEquals(45.0, alphaSnapshot.mspt());
+        assertEquals(10, alphaSnapshot.players());
+    }
+}

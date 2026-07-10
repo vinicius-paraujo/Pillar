@@ -14,12 +14,14 @@ import com.markineo.pillar.core.task.HandlerRegistry;
 import com.markineo.pillar.error.ConfigurationException;
 import com.markineo.pillar.logger.PillarLogger;
 import com.google.gson.Gson;
+import com.markineo.pillar.redis.lifecycle.RedisConnector;
+import com.markineo.pillar.redis.presence.HealthRegistry;
 import com.markineo.pillar.redis.presence.HealthService;
+import com.markineo.pillar.redis.presence.HealthView;
+import com.markineo.pillar.redis.presence.PresenceService;
 import com.markineo.pillar.redis.transport.InboxDiagnostics;
 import com.markineo.pillar.redis.transport.JsonEnvelopeCodec;
 import com.markineo.pillar.redis.transport.PingHandler;
-import com.markineo.pillar.redis.presence.PresenceService;
-import com.markineo.pillar.redis.lifecycle.RedisConnector;
 import com.markineo.pillar.redis.transport.RequestSender;
 import com.markineo.pillar.redis.transport.StreamConsumer;
 import com.markineo.pillar.redis.transport.StreamPublisher;
@@ -49,6 +51,7 @@ public final class PillarVelocity {
     private PillarExecutors executors;
     private RedisConnector redis;
     private PresenceService presence;
+    private HealthRegistry healthRegistry;
     private HealthService health;
     private ScheduledExecutorService timeoutScheduler;
     private CorrelationRegistry correlations;
@@ -85,6 +88,11 @@ public final class PillarVelocity {
         this.presence = new PresenceService(redis, identity, executors, logger);
         presence.start();
 
+        Gson gson = new Gson();
+        HealthView healthView = new HealthView(redis, gson);
+        this.healthRegistry = new HealthRegistry(presence, healthView, executors, logger, settings.healthInterval());
+        healthRegistry.start();
+
         JsonEnvelopeCodec codec = new JsonEnvelopeCodec();
         this.timeoutScheduler = executors.newSingleThreadScheduled("correlation-timeout");
         this.correlations = new CorrelationRegistry(timeoutScheduler);
@@ -98,7 +106,6 @@ public final class PillarVelocity {
         consumer.start();
 
         VelocityHealthProvider healthProvider = new VelocityHealthProvider(server, consumer);
-        Gson gson = new Gson();
         this.health = new HealthService(redis, selfId, healthProvider, gson, executors, logger, settings.healthInterval());
         health.start();
 
@@ -126,6 +133,9 @@ public final class PillarVelocity {
         }
         if (health != null) {
             health.close();
+        }
+        if (healthRegistry != null) {
+            healthRegistry.close();
         }
         if (presence != null) {
             presence.close();

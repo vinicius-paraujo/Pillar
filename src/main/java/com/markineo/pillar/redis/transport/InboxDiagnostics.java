@@ -19,15 +19,10 @@ public final class InboxDiagnostics {
     // leaves them here, invisible until PIL-40 recovery. Zero when Redis is unreachable, which
     // the caller distinguishes from a healthy zero by also reading the connection state.
     public long pendingEntries(ServerId self) {
-        if (!connector.isReady()) {
-            return 0;
-        }
-        try (Jedis jedis = connector.pool().getResource()) {
+        return connector.withResource(jedis -> {
             StreamPendingSummary summary =
                     jedis.xpending(RedisKeys.inbox(self), StreamProtocol.CONSUMER_GROUP);
-            return summary == null ? 0 : summary.getTotal();
-        } catch (JedisException e) {
-            return 0;
-        }
+            return summary == null ? 0L : summary.getTotal();
+        }).orElse(0L);
     }
 }

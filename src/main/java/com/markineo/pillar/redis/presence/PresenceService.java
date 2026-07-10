@@ -9,7 +9,7 @@ import com.markineo.pillar.logger.PillarLogger;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
-public final class PresenceService implements AutoCloseable {
+public class PresenceService implements AutoCloseable {
 
     private final HeartbeatPublisher publisher;
     private final FleetView fleetView;

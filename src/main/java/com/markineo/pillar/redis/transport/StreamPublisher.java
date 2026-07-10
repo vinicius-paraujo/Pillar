@@ -24,7 +24,7 @@ public final class StreamPublisher {
 
     public void publish(ServerId destination, Envelope envelope) {
         String wire = codec.encode(envelope);
-        try (Jedis jedis = connector.pool().getResource()) {
+        try (Jedis jedis = connector.getResource()) {
             jedis.xadd(RedisKeys.inbox(destination), StreamEntryID.NEW_ENTRY,
                     Map.of(StreamProtocol.FIELD_DATA, wire));
         } catch (JedisException e) {

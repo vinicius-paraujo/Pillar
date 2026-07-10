@@ -70,8 +70,19 @@ public final class RedisConnector implements AutoCloseable {
         return state.get() == ConnectionState.READY;
     }
 
-    public JedisPool pool() {
-        return pool;
+    public Jedis getResource() {
+        return pool.getResource();
+    }
+
+    public <T> java.util.Optional<T> withResource(java.util.function.Function<Jedis, T> action) {
+        if (!isReady()) {
+            return java.util.Optional.empty();
+        }
+        try (Jedis jedis = getResource()) {
+            return java.util.Optional.ofNullable(action.apply(jedis));
+        } catch (redis.clients.jedis.exceptions.JedisException e) {
+            return java.util.Optional.empty();
+        }
     }
 
     @Override
