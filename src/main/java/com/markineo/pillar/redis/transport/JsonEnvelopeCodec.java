@@ -26,9 +26,8 @@ public final class JsonEnvelopeCodec implements EnvelopeCodec {
 
     private final Gson gson;
 
-    public JsonEnvelopeCodec() {
-        // Keep MiniMessage tags (<gold>) literal, not unicode-escaped.
-        this.gson = new GsonBuilder().disableHtmlEscaping().create();
+    public JsonEnvelopeCodec(Gson gson) {
+        this.gson = gson;
     }
 
     @Override
@@ -40,9 +39,7 @@ public final class JsonEnvelopeCodec implements EnvelopeCodec {
             envelope.correlationId().ifPresent(c -> obj.addProperty(F_CORRELATION, c.value()));
             obj.addProperty(F_SENDER, envelope.senderId().value());
             obj.addProperty(F_SENT_AT, envelope.sentAt());
-            // Re-parse the payload string so it is inlined as a JSON subtree, not a
-            // double-encoded string. Fail fast here rather than writing corrupt data.
-            obj.add(F_PAYLOAD, JsonParser.parseString(envelope.payload()));
+            obj.addProperty(F_PAYLOAD, envelope.payload());
             return gson.toJson(obj);
         } catch (JsonParseException e) {
             throw new PillarException("Envelope payload is not valid JSON.", e);
@@ -94,15 +91,10 @@ public final class JsonEnvelopeCodec implements EnvelopeCodec {
     }
 
     private String readPayload(JsonObject root) {
-        // An absent or null payload would become the string "null" via gson.toJson, which
-        // Envelope accepts (a non-blank String). Reject it explicitly instead.
         if (!root.has(F_PAYLOAD) || root.get(F_PAYLOAD).isJsonNull()) {
             throw new PillarException("Envelope is missing required payload field.");
         }
-        // Three-pass overhead: the payload is parsed here, re-serialized to String, then
-        // parsed again in decodePayload. Acceptable at MVP message volume; revisit if
-        // profiling shows this path as hot.
-        return gson.toJson(root.get(F_PAYLOAD));
+        return readString(root, F_PAYLOAD);
     }
 
     @Override

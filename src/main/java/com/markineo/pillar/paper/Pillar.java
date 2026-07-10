@@ -69,7 +69,8 @@ public final class Pillar extends JavaPlugin {
         this.presence = new PresenceService(redis, identity, executors, logger);
         presence.start();
 
-        JsonEnvelopeCodec codec = new JsonEnvelopeCodec();
+        Gson gson = new com.google.gson.GsonBuilder().disableHtmlEscaping().create();
+        JsonEnvelopeCodec codec = new JsonEnvelopeCodec(gson);
         this.timeoutScheduler = executors.newSingleThreadScheduled("correlation-timeout");
         this.correlations = new CorrelationRegistry(timeoutScheduler);
 
@@ -82,7 +83,7 @@ public final class Pillar extends JavaPlugin {
         consumer.start();
 
         PaperHealthProvider healthProvider = new PaperHealthProvider(this, consumer);
-        this.health = new HealthService(redis, selfId, healthProvider, new Gson(), executors, logger, settings.healthInterval());
+        this.health = new HealthService(redis, selfId, healthProvider, gson, executors, logger, settings.healthInterval());
         health.start();
 
         RequestSender requestSender = new RequestSender(publisher, correlations);

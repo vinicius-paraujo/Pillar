@@ -42,7 +42,7 @@ class TaskRoutingCompositionIntegrationTest extends RedisIntegrationTest {
     @BeforeEach
     void setupNodes() {
         gson = new Gson();
-        codec = new JsonEnvelopeCodec();
+        codec = new JsonEnvelopeCodec(gson);
 
         proxyNode = new Node(new ServerId("proxy"));
         hubNode = new Node(new ServerId("hub"));

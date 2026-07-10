@@ -56,7 +56,8 @@ class HealthRegistryIntegrationTest extends RedisIntegrationTest {
         proxyPresence.start();
 
         HealthView healthView = new HealthView(connector, gson);
-        proxyRegistry = new HealthRegistry(proxyPresence, healthView, executors, logger, Duration.ofMillis(100));
+        var reservations = new com.markineo.pillar.core.placement.ReservationRegistry(java.time.Clock.systemUTC(), Duration.ofSeconds(5));
+        proxyRegistry = new HealthRegistry(proxyPresence, healthView, executors, logger, Duration.ofMillis(100), reservations);
         proxyRegistry.start();
     }
 

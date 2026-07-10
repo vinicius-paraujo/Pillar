@@ -98,19 +98,19 @@ public final class PillarVelocity {
         this.presence = new PresenceService(redis, identity, executors, logger);
         presence.start();
 
-        Gson gson = new Gson();
-        HealthView healthView = new HealthView(redis, gson);
-        this.healthRegistry = new HealthRegistry(presence, healthView, executors, logger, settings.healthInterval());
-        healthRegistry.start();
-
         // Placement (Login Routing)
         Duration reservationTtl = settings.healthInterval().multipliedBy(3).dividedBy(2); // 1.5x
         ReservationRegistry reservations = new ReservationRegistry(Clock.systemUTC(), reservationTtl);
+
+        Gson gson = new com.google.gson.GsonBuilder().disableHtmlEscaping().create();
+        HealthView healthView = new HealthView(redis, gson);
+        this.healthRegistry = new HealthRegistry(presence, healthView, executors, logger, settings.healthInterval(), reservations);
+        healthRegistry.start();
         EligibilityFilter eligibilityFilter = new EligibilityFilter(settings.hardCaps());
         PlacementSelector placementSelector = new PlacementSelector(reservations);
         PlacementService placement = new PlacementService(eligibilityFilter, placementSelector, reservations);
 
-        JsonEnvelopeCodec codec = new JsonEnvelopeCodec();
+        JsonEnvelopeCodec codec = new JsonEnvelopeCodec(gson);
         this.timeoutScheduler = executors.newSingleThreadScheduled("correlation-timeout");
         this.correlations = new CorrelationRegistry(timeoutScheduler);
 

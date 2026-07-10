@@ -6,6 +6,7 @@ import com.markineo.pillar.redis.RedisKeys;
 import com.markineo.pillar.core.identity.ServerId;
 import com.markineo.pillar.core.task.Envelope;
 import com.markineo.pillar.core.task.MessageType;
+import com.google.gson.Gson;
 import org.junit.jupiter.api.Test;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.exceptions.JedisException;
@@ -21,7 +22,8 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 class StreamTransportIntegrationTest extends RedisIntegrationTest {
 
-    private final JsonEnvelopeCodec codec = new JsonEnvelopeCodec();
+    private final Gson gson = new Gson();
+    private final JsonEnvelopeCodec codec = new JsonEnvelopeCodec(gson);
 
     record Ping(String message) {
     }

@@ -72,7 +72,8 @@ class HealthRegistryTest {
         };
 
         // Use a short interval for test to tick quickly
-        registry = new HealthRegistry(stubPresence, stubHealthView, executors, logger, Duration.ofMillis(10));
+        var reservations = new com.markineo.pillar.core.placement.ReservationRegistry(java.time.Clock.systemUTC(), Duration.ofSeconds(5));
+        registry = new HealthRegistry(stubPresence, stubHealthView, executors, logger, Duration.ofMillis(10), reservations);
         registry.start();
     }
 

@@ -75,11 +75,8 @@ class EligibilityFilterTest {
     }
 
     @Test
-    void protectsAgainstDivisionByZeroWhenMaxMemoryIsZero() {
-        HardCaps caps = new HardCaps(100, 0.8, 45.0);
-        EligibilityFilter filter = new EligibilityFilter(caps);
-
-        HealthSnapshot snapshot = new HealthSnapshot(20.0, 0, 0, 50, 2, 0);
-        assertTrue(filter.isEligible(snapshot), "Should treat 0 max memory as 0% usage, remaining eligible");
+    void rejectsZeroMaxMemoryAtConstructionTime() {
+        assertThrows(IllegalArgumentException.class, () -> new HealthSnapshot(20.0, 0, 0, 50, 2, 0),
+                "maxMemory <= 0 should be rejected at the trust boundary");
     }
 }

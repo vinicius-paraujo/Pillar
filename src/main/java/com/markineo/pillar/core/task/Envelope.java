@@ -19,7 +19,7 @@ public record Envelope(
         String payload
 ) {
 
-    public static final int CURRENT_VERSION = 1;
+    public static final int CURRENT_VERSION = 2;
 
     public Envelope {
         Objects.requireNonNull(type, "type");

@@ -6,6 +6,7 @@ import com.markineo.pillar.core.task.CorrelationId;
 import com.markineo.pillar.core.task.Envelope;
 import com.markineo.pillar.core.task.MessageType;
 import com.markineo.pillar.error.PillarException;
+import com.google.gson.Gson;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -14,7 +15,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class JsonEnvelopeCodecTest {
 
-    private final JsonEnvelopeCodec codec = new JsonEnvelopeCodec();
+    private final Gson gson = new Gson();
+    private final JsonEnvelopeCodec codec = new JsonEnvelopeCodec(gson);
 
     record Ping(String message) {
     }
@@ -53,7 +55,7 @@ class JsonEnvelopeCodecTest {
     void rejectsAFutureVersion() {
         String futureVersion = codec.encode(Envelope.oneWay(new MessageType("pillar.ping"),
                 new ServerId("skyblock-1"), codec.encodePayload(new Ping("x"))))
-                .replaceFirst("\"v\":1", "\"v\":999");
+                .replaceFirst("\"v\":2", "\"v\":999");
 
         assertThrows(PillarException.class, () -> codec.decode(futureVersion));
     }

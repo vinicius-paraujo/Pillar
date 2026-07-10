@@ -8,6 +8,7 @@ import com.markineo.pillar.core.task.CorrelationRegistry;
 import com.markineo.pillar.core.task.Envelope;
 import com.markineo.pillar.core.task.HandlerRegistry;
 import com.markineo.pillar.core.task.PillarMessageTypes;
+import com.google.gson.Gson;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
@@ -23,7 +24,8 @@ class PingPongIntegrationTest extends RedisIntegrationTest {
 
     private static final Duration TIMEOUT = Duration.ofSeconds(5);
 
-    private final JsonEnvelopeCodec codec = new JsonEnvelopeCodec();
+    private final Gson gson = new Gson();
+    private final JsonEnvelopeCodec codec = new JsonEnvelopeCodec(gson);
 
     @Test
     void pingRoundTripsAndPongIsDeliveredToTheFuture() throws Exception {
