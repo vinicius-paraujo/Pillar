@@ -5,8 +5,6 @@ import com.markineo.pillar.core.identity.ServerIdentity;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.atomic.AtomicInteger;
 
 public final class ReservationRegistry {
 

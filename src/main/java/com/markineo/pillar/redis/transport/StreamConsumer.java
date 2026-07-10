@@ -10,6 +10,7 @@ import com.markineo.pillar.core.task.EnvelopeCodec;
 import com.markineo.pillar.error.PillarException;
 import com.markineo.pillar.logger.PillarLogger;
 import redis.clients.jedis.Jedis;
+import redis.clients.jedis.Pipeline;
 import redis.clients.jedis.StreamEntryID;
 import redis.clients.jedis.exceptions.JedisDataException;
 import redis.clients.jedis.exceptions.JedisException;
@@ -252,8 +253,11 @@ public final class StreamConsumer implements AutoCloseable, SignalTracker {
         String dedupKey = RedisKeys.dedup(self, entry.getID().toString());
         try {
             sink.accept(envelope);
-            jedis.setex(dedupKey, dedupWindow.toSeconds(), "DONE");
-            acknowledgeAndClean(jedis, entry.getID());
+            try (Pipeline pipeline = jedis.pipelined()) {
+                pipeline.setex(dedupKey, dedupWindow.toSeconds(), "DONE");
+                acknowledgeAndClean(pipeline, entry.getID());
+                pipeline.sync();
+            }
         } catch (RuntimeException handlerFailure) {
             logger.error("Handler failed for inbox entry " + entry.getID() + " (attempt " + attempt + "); left pending.", handlerFailure);
             jedis.del(dedupKey); // Release lock so it can be retried immediately
@@ -261,8 +265,15 @@ public final class StreamConsumer implements AutoCloseable, SignalTracker {
     }
 
     private void acknowledgeAndClean(Jedis jedis, StreamEntryID id) {
-        jedis.xack(inbox, StreamProtocol.CONSUMER_GROUP, id);
-        jedis.hdel(RedisKeys.attempts(self), id.toString());
+        try (Pipeline pipeline = jedis.pipelined()) {
+            acknowledgeAndClean(pipeline, id);
+            pipeline.sync();
+        }
+    }
+
+    private void acknowledgeAndClean(Pipeline pipeline, StreamEntryID id) {
+        pipeline.xack(inbox, StreamProtocol.CONSUMER_GROUP, id);
+        pipeline.hdel(RedisKeys.attempts(self), id.toString());
     }
 
     private List<StreamEntry> entriesFrom(List<Map.Entry<String, List<StreamEntry>>> streams) {
