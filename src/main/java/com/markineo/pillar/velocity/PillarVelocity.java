@@ -66,12 +66,14 @@ public final class PillarVelocity {
     private ScheduledExecutorService timeoutScheduler;
     private CorrelationRegistry correlations;
     private StreamConsumer consumer;
+    private final com.velocitypowered.api.plugin.PluginContainer container;
 
     @Inject
-    public PillarVelocity(ProxyServer server, Logger logger, @DataDirectory Path dataDirectory) {
+    public PillarVelocity(ProxyServer server, Logger logger, @DataDirectory Path dataDirectory, com.velocitypowered.api.plugin.PluginContainer container) {
         this.server = server;
         this.logger = new PillarLogger(logger);
         this.dataDirectory = dataDirectory;
+        this.container = container;
     }
 
     @Subscribe
@@ -87,7 +89,8 @@ public final class PillarVelocity {
             return;
         }
 
-        logger.info("Enabling Pillar v0.1.0, using language '" + settings.language() + "'.");
+        String version = container.getDescription().getVersion().orElse("unknown");
+        logger.info("Enabling Pillar v" + version + ", using language '" + settings.language() + "'.");
 
         this.executors = new PillarExecutors(logger);
         this.redis = new RedisConnector(settings.redis(), executors, logger);
@@ -121,8 +124,17 @@ public final class PillarVelocity {
         handlers.register(new SendPlayerMessageHandler(server, gson, logger));
         handlers.register(new BroadcastHandler(server, gson, logger));
 
-        this.consumer = new StreamConsumer(redis, codec, selfId, executors, logger, handlers.asSink(codec, logger), 
-                                           settings.consumerDedupWindow(), settings.consumerPoolSize(), settings.consumerQueueCapacity());
+        this.consumer = new StreamConsumer(
+                redis,
+                codec,
+                selfId,
+                executors,
+                logger,
+                handlers.asSink(codec, logger),
+                settings.consumerDedupWindow(),
+                settings.consumerPoolSize(),
+                settings.consumerQueueCapacity()
+        );
         consumer.start();
 
         VelocityHealthProvider healthProvider = new VelocityHealthProvider(server, consumer);

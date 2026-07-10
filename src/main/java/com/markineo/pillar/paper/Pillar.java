@@ -58,7 +58,8 @@ public final class Pillar extends JavaPlugin {
             return;
         }
 
-        logger.info("Using language '" + settings.language() + "'.");
+        String version = getPluginMeta().getVersion();
+        logger.info("Enabling Pillar v" + version + ", using language '" + settings.language() + "'.");
 
         this.executors = new PillarExecutors(logger);
         this.redis = new RedisConnector(settings.redis(), executors, logger);
