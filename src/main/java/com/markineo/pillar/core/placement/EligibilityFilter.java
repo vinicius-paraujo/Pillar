@@ -12,7 +12,7 @@ public final class EligibilityFilter {
 
     public boolean isEligible(HealthSnapshot snapshot) {
         if (snapshot == null) {
-            return true; // Delegates the blind node to PlacementSelector to apply the penalty (PIL-24)
+            return true; // Delegates the blind node to PlacementSelector to apply the penalty
         }
 
         if ((snapshot.players() + snapshot.pendingSignals()) >= caps.maxPlayers()) {
@@ -27,10 +27,6 @@ public final class EligibilityFilter {
                 ? (double) snapshot.usedMemory() / snapshot.maxMemory()
                 : 0.0;
 
-        if (memoryPercent >= caps.maxMemoryPercent()) {
-            return false;
-        }
-
-        return true;
+        return memoryPercent < caps.maxMemoryPercent();
     }
 }
