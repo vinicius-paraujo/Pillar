@@ -31,7 +31,7 @@ public class HealthView {
             }
             try {
                 return gson.fromJson(json, HealthSnapshot.class);
-            } catch (com.google.gson.JsonSyntaxException e) {
+            } catch (RuntimeException ignored) {
                 return null;
             }
         });
@@ -55,8 +55,8 @@ public class HealthView {
                 if (json != null) {
                     try {
                         result.put(idArray[i], gson.fromJson(json, HealthSnapshot.class));
-                    } catch (com.google.gson.JsonSyntaxException ignored) {
-                        // Poison data, skip this node
+                    } catch (RuntimeException ignored) {
+                        // Poison data (malformed JSON or invalid values), skip this node
                     }
                 }
             }

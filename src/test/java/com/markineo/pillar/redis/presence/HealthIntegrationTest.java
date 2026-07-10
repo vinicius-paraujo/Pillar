@@ -7,10 +7,15 @@ import com.markineo.pillar.core.health.HealthSnapshot;
 import com.markineo.pillar.core.identity.ServerId;
 import org.junit.jupiter.api.Test;
 
+import com.markineo.pillar.redis.RedisKeys;
+import redis.clients.jedis.Jedis;
+
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class HealthIntegrationTest extends RedisIntegrationTest {
@@ -49,5 +54,29 @@ class HealthIntegrationTest extends RedisIntegrationTest {
         } finally {
             service.close();
         }
+    }
+
+    @Test
+    void poisonNodeIsSkippedWithoutAffectingValidNodes() {
+        Gson gson = new Gson();
+        HealthView view = new HealthView(connector, gson);
+
+        ServerId valid = new ServerId("valid-node");
+        ServerId poison = new ServerId("poison-node");
+
+        try (Jedis jedis = connector.getResource()) {
+            jedis.set(RedisKeys.health(valid), "{\"mspt\":20.0,\"usedMemory\":512,\"maxMemory\":1024,\"players\":5,\"worlds\":1,\"pendingSignals\":0}");
+            jedis.set(RedisKeys.health(poison), "{\"mspt\":-5,\"usedMemory\":512,\"maxMemory\":1024,\"players\":5,\"worlds\":1,\"pendingSignals\":0}");
+        }
+
+        Map<ServerId, HealthSnapshot> result = view.fetchAll(Set.of(valid, poison));
+
+        assertEquals(1, result.size(), "Only the valid node should be in the result");
+        assertTrue(result.containsKey(valid));
+        assertFalse(result.containsKey(poison));
+        assertEquals(20.0, result.get(valid).mspt());
+
+        Optional<HealthSnapshot> singlePoison = view.fetch(poison);
+        assertTrue(singlePoison.isEmpty(), "fetch() should return empty for a poison node");
     }
 }
