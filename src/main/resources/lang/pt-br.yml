@@ -26,3 +26,7 @@ status:
   log_header: "<gray>Atividade recente:</gray>"
   log_entry: "<dark_gray>-</dark_gray> <white><level></white> <gray><message></gray>"
   log_empty: "<gray>Nenhuma atividade recente.</gray>"
+
+routing:
+  no-eligible-node: "<red>Não há servidores disponíveis no momento. Tente novamente mais tarde.</red>"
+  unroutable: "<red>O servidor de destino não é reconhecido pelo proxy.</red>"

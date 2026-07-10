@@ -26,7 +26,12 @@ import com.markineo.pillar.redis.transport.RequestSender;
 import com.markineo.pillar.redis.transport.StreamConsumer;
 import com.markineo.pillar.redis.transport.StreamPublisher;
 import com.markineo.pillar.velocity.command.PillarCommand;
+import com.markineo.pillar.velocity.listener.LoginListener;
 import com.markineo.pillar.velocity.tasks.VelocityScheduler;
+import com.markineo.pillar.core.placement.EligibilityFilter;
+import com.markineo.pillar.core.placement.PlacementSelector;
+import com.markineo.pillar.core.placement.PlacementService;
+import com.markineo.pillar.core.placement.ReservationRegistry;
 import com.velocitypowered.api.command.CommandManager;
 import com.velocitypowered.api.command.CommandMeta;
 import com.velocitypowered.api.event.Subscribe;
@@ -36,6 +41,8 @@ import com.velocitypowered.api.plugin.annotation.DataDirectory;
 import com.velocitypowered.api.proxy.ProxyServer;
 import org.slf4j.Logger;
 
+import java.time.Clock;
+import java.time.Duration;
 import java.nio.file.Path;
 import java.util.concurrent.ScheduledExecutorService;
 
@@ -116,6 +123,17 @@ public final class PillarVelocity {
         commands.register(meta, new PillarCommand(
                 lang, configurations, presence, redis, new InboxDiagnostics(redis), requestSender,
                 new VelocityScheduler(), selfId, logger));
+
+        // Placement (Login Routing)
+        Duration reservationTtl = settings.healthInterval().multipliedBy(3).dividedBy(2); // 1.5x
+        ReservationRegistry reservations = new ReservationRegistry(Clock.systemUTC(), reservationTtl);
+        EligibilityFilter eligibilityFilter = new EligibilityFilter(settings.hardCaps());
+        PlacementSelector placementSelector = new PlacementSelector(reservations);
+        PlacementService placement = new PlacementService(eligibilityFilter, placementSelector, reservations);
+
+        server.getEventManager().register(this, new LoginListener(
+                server, placement, presence, healthRegistry, settings, lang, logger
+        ));
 
         logger.info("Pillar initialized as '" + settings.name() + "'.");
     }

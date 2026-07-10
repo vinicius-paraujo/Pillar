@@ -46,6 +46,17 @@ public final class ConfigurationFile {
         return resolve(path) instanceof Boolean value ? value : fallback;
     }
 
+    public double getDouble(String path, double fallback) {
+        Object resolved = resolve(path);
+        if (resolved instanceof Double d) {
+            return d;
+        }
+        if (resolved instanceof Number n) {
+            return n.doubleValue();
+        }
+        return fallback;
+    }
+
     private Object resolve(String path) {
         String[] segments = path.split("\\.");
         String leafKey = segments[segments.length - 1];

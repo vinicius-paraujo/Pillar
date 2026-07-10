@@ -7,3 +7,10 @@ redis:
   password: ""
 
 language: "en-us"
+
+routing:
+  entry-role: "hub"
+  hard-caps:
+    max-players: 100
+    max-memory-percent: 0.9
+    max-mspt: 45.0

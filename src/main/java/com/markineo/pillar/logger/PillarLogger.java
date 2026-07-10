@@ -9,7 +9,7 @@ import java.util.List;
 
 public final class PillarLogger {
 
-    public enum Level { INFO, WARN, ERROR }
+    public enum Level { DEBUG, INFO, WARN, ERROR }
 
     public record Entry(Instant time, Level level, String message) {}
 
@@ -21,6 +21,11 @@ public final class PillarLogger {
 
     public PillarLogger(Logger delegate) {
         this.delegate = delegate;
+    }
+
+    public void debug(String message) {
+        delegate.debug(message);
+        record(Level.DEBUG, message);
     }
 
     public void info(String message) {

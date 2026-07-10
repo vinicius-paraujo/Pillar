@@ -14,3 +14,10 @@ redis:
     max-wait-millis: 2000
 
 language: "en-us"
+
+routing:
+  entry-role: "hub"
+  hard-caps:
+    max-players: 100
+    max-memory-percent: 0.9
+    max-mspt: 45.0
