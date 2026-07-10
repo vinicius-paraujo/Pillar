@@ -5,5 +5,12 @@ redis:
   host: "127.0.0.1"
   port: 6379
   password: ""
+  pool:
+    # Concurrent connections the proxy may hold. The proxy fans placement reads across
+    # the fleet under login bursts, so it is the most exhaustion-prone node — size up here.
+    max-total: 16
+    # Milliseconds a caller waits for a connection before failing into degraded mode
+    # instead of blocking forever under exhaustion.
+    max-wait-millis: 2000
 
 language: "en-us"

@@ -7,6 +7,13 @@ redis:
   host: "127.0.0.1"
   port: 6379
   password: ""
+  pool:
+    # Concurrent connections this node may hold. Raise it for high login traffic:
+    # the blocking consumer, PEL drain, heartbeat, and health each pin a connection.
+    max-total: 16
+    # Milliseconds a caller waits for a connection before failing into degraded mode
+    # instead of blocking forever under exhaustion.
+    max-wait-millis: 2000
 
 # avaliable: en-us, pt-br
 language: "en-us"

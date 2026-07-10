@@ -1,7 +1,5 @@
 package com.markineo.pillar.redis.lifecycle;
 
-import com.markineo.pillar.redis.lifecycle.ConnectionState;
-import com.markineo.pillar.redis.lifecycle.RedisConnector;
 import com.markineo.pillar.concurrent.PillarExecutors;
 import com.markineo.pillar.config.RedisSettings;
 import com.markineo.pillar.logger.PillarLogger;
@@ -36,7 +34,7 @@ public final class RedisConnector implements AutoCloseable {
     public void start() {
         String password = settings.password().isBlank() ? null : settings.password();
         this.pool = new JedisPool(
-                new JedisPoolConfig(),
+                poolConfig(),
                 settings.host(),
                 settings.port(), SOCKET_TIMEOUT_MILLIS,
                 password
@@ -47,6 +45,21 @@ public final class RedisConnector implements AutoCloseable {
         this.healthCheck = executors.newSingleThreadScheduled("redis-health");
         healthCheck.scheduleWithFixedDelay(this::probe,
                 HEALTH_INTERVAL.toMillis(), HEALTH_INTERVAL.toMillis(), TimeUnit.MILLISECONDS);
+    }
+
+    // A control plane holds several connections at once: the blocking XREADGROUP pins
+    // one for up to the block window, the PEL drain another, plus heartbeat, health, and
+    // command paths (placement reads join them in Iteration 3). The pool defaults are a
+    // trap here — maxTotal 8 starves under a login storm, and maxWait -1 then blocks
+    // callers forever instead of failing fast into the degraded state the health loop
+    // already handles. Size both explicitly; maxIdle tracks maxTotal so bursts don't
+    // churn connections through the evictor.
+    private JedisPoolConfig poolConfig() {
+        JedisPoolConfig config = new JedisPoolConfig();
+        config.setMaxTotal(settings.poolMaxTotal());
+        config.setMaxIdle(settings.poolMaxTotal());
+        config.setMaxWait(settings.poolMaxWait());
+        return config;
     }
 
     public ConnectionState state() {
