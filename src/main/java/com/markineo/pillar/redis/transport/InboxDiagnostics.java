@@ -3,8 +3,7 @@ package com.markineo.pillar.redis.transport;
 import com.markineo.pillar.redis.RedisKeys;
 import com.markineo.pillar.redis.lifecycle.RedisConnector;
 import com.markineo.pillar.core.identity.ServerId;
-import redis.clients.jedis.Jedis;
-import redis.clients.jedis.exceptions.JedisException;
+
 import redis.clients.jedis.resps.StreamPendingSummary;
 
 public final class InboxDiagnostics {

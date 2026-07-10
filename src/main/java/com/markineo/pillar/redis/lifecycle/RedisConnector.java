@@ -6,11 +6,14 @@ import com.markineo.pillar.logger.PillarLogger;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
 import redis.clients.jedis.JedisPoolConfig;
+import redis.clients.jedis.exceptions.JedisException;
 
 import java.time.Duration;
+import java.util.Optional;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
 
 public final class RedisConnector implements AutoCloseable {
 
@@ -74,14 +77,15 @@ public final class RedisConnector implements AutoCloseable {
         return pool.getResource();
     }
 
-    public <T> java.util.Optional<T> withResource(java.util.function.Function<Jedis, T> action) {
+    public <T> Optional<T> withResource(Function<Jedis, T> action) {
         if (!isReady()) {
-            return java.util.Optional.empty();
+            return Optional.empty();
         }
+        
         try (Jedis jedis = getResource()) {
-            return java.util.Optional.ofNullable(action.apply(jedis));
-        } catch (redis.clients.jedis.exceptions.JedisException e) {
-            return java.util.Optional.empty();
+            return Optional.ofNullable(action.apply(jedis));
+        } catch (JedisException e) {
+            return Optional.empty();
         }
     }
 

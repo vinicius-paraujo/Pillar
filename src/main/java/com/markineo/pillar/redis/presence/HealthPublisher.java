@@ -6,8 +6,7 @@ import com.google.gson.Gson;
 import com.markineo.pillar.core.health.HealthProvider;
 import com.markineo.pillar.core.health.HealthSnapshot;
 import com.markineo.pillar.core.identity.ServerId;
-import redis.clients.jedis.Jedis;
-import redis.clients.jedis.exceptions.JedisException;
+
 
 public final class HealthPublisher {
 

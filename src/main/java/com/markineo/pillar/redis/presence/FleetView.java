@@ -6,7 +6,7 @@ import com.markineo.pillar.core.fleet.FleetSnapshot;
 import com.markineo.pillar.core.identity.ServerIdentity;
 import com.markineo.pillar.core.identity.ServerRole;
 import redis.clients.jedis.Jedis;
-import redis.clients.jedis.exceptions.JedisException;
+
 import redis.clients.jedis.params.ScanParams;
 import redis.clients.jedis.resps.ScanResult;
 

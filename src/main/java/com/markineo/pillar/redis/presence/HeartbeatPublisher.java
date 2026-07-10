@@ -3,8 +3,7 @@ package com.markineo.pillar.redis.presence;
 import com.markineo.pillar.redis.RedisKeys;
 import com.markineo.pillar.redis.lifecycle.RedisConnector;
 import com.markineo.pillar.core.identity.ServerIdentity;
-import redis.clients.jedis.Jedis;
-import redis.clients.jedis.exceptions.JedisException;
+
 
 import java.time.Duration;
 
