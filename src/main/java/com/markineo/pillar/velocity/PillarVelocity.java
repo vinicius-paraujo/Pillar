@@ -26,6 +26,7 @@ import com.markineo.pillar.redis.transport.RequestSender;
 import com.markineo.pillar.redis.transport.StreamConsumer;
 import com.markineo.pillar.redis.transport.StreamPublisher;
 import com.markineo.pillar.velocity.command.PillarCommand;
+import com.markineo.pillar.velocity.handler.RoutePlayerHandler;
 import com.markineo.pillar.velocity.listener.LoginListener;
 import com.markineo.pillar.velocity.tasks.VelocityScheduler;
 import com.markineo.pillar.core.placement.EligibilityFilter;
@@ -100,6 +101,13 @@ public final class PillarVelocity {
         this.healthRegistry = new HealthRegistry(presence, healthView, executors, logger, settings.healthInterval());
         healthRegistry.start();
 
+        // Placement (Login Routing)
+        Duration reservationTtl = settings.healthInterval().multipliedBy(3).dividedBy(2); // 1.5x
+        ReservationRegistry reservations = new ReservationRegistry(Clock.systemUTC(), reservationTtl);
+        EligibilityFilter eligibilityFilter = new EligibilityFilter(settings.hardCaps());
+        PlacementSelector placementSelector = new PlacementSelector(reservations);
+        PlacementService placement = new PlacementService(eligibilityFilter, placementSelector, reservations);
+
         JsonEnvelopeCodec codec = new JsonEnvelopeCodec();
         this.timeoutScheduler = executors.newSingleThreadScheduled("correlation-timeout");
         this.correlations = new CorrelationRegistry(timeoutScheduler);
@@ -107,6 +115,7 @@ public final class PillarVelocity {
         StreamPublisher publisher = new StreamPublisher(redis, codec);
         HandlerRegistry handlers = new HandlerRegistry(correlations);
         handlers.register(new PingHandler(selfId, publisher, logger));
+        handlers.register(new RoutePlayerHandler(server, placement, presence, healthRegistry, publisher, selfId, gson, logger));
 
         this.consumer = new StreamConsumer(redis, codec, selfId, executors, logger, handlers.asSink(codec, logger), 
                                            settings.consumerDedupWindow(), settings.consumerPoolSize(), settings.consumerQueueCapacity());
@@ -125,12 +134,6 @@ public final class PillarVelocity {
                 new VelocityScheduler(), selfId, logger));
 
         // Placement (Login Routing)
-        Duration reservationTtl = settings.healthInterval().multipliedBy(3).dividedBy(2); // 1.5x
-        ReservationRegistry reservations = new ReservationRegistry(Clock.systemUTC(), reservationTtl);
-        EligibilityFilter eligibilityFilter = new EligibilityFilter(settings.hardCaps());
-        PlacementSelector placementSelector = new PlacementSelector(reservations);
-        PlacementService placement = new PlacementService(eligibilityFilter, placementSelector, reservations);
-
         server.getEventManager().register(this, new LoginListener(
                 server, placement, presence, healthRegistry, settings, lang, logger
         ));
