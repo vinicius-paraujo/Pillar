@@ -2,6 +2,7 @@ package com.markineo.pillar.velocity.handler;
 
 import com.google.gson.Gson;
 import com.markineo.pillar.core.messaging.BroadcastRequest;
+import com.markineo.pillar.core.task.CorrelationId;
 import com.markineo.pillar.core.task.Envelope;
 import com.markineo.pillar.core.task.EnvelopeCodec;
 import com.markineo.pillar.core.task.MessageHandler;
@@ -35,7 +36,7 @@ public final class BroadcastHandler implements MessageHandler {
         try {
             request = gson.fromJson(envelope.payload(), BroadcastRequest.class);
         } catch (Exception e) {
-            logger.error("Failed to parse BroadcastRequest from envelope " + envelope.correlationId().map(com.markineo.pillar.core.task.CorrelationId::value).orElse("none"), e);
+            logger.error("Failed to parse BroadcastRequest from envelope " + envelope.correlationId().map(CorrelationId::value).orElse("none"), e);
             return;
         }
 

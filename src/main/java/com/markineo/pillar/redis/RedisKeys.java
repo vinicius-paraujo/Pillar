@@ -7,6 +7,7 @@ public final class RedisKeys {
     private static final String PRESENCE_PREFIX = "pillar:presence:";
     private static final String INBOX_PREFIX = "pillar:inbox:";
     private static final String HEALTH_PREFIX = "pillar:health:";
+    private static final String LEASE_PREFIX = "pillar:lease:";
 
     private RedisKeys() {
     }
@@ -37,5 +38,9 @@ public final class RedisKeys {
 
     public static String dedup(ServerId id, String messageId) {
         return "pillar:dedup:" + id.value() + ":" + messageId;
+    }
+
+    public static String lease(com.markineo.pillar.core.lease.ResourceKey key) {
+        return LEASE_PREFIX + key.name();
     }
 }

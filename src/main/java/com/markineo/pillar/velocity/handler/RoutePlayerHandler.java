@@ -9,6 +9,7 @@ import com.markineo.pillar.core.placement.PlacementService;
 import com.markineo.pillar.core.placement.RouteOutcome;
 import com.markineo.pillar.core.placement.RoutePlayerRequest;
 import com.markineo.pillar.core.placement.RoutePlayerResponse;
+import com.markineo.pillar.core.task.CorrelationId;
 import com.markineo.pillar.core.task.Envelope;
 import com.markineo.pillar.core.task.EnvelopeCodec;
 import com.markineo.pillar.core.task.MessageHandler;
@@ -60,7 +61,7 @@ public final class RoutePlayerHandler implements MessageHandler {
         try {
             request = gson.fromJson(envelope.payload(), RoutePlayerRequest.class);
         } catch (Exception e) {
-            logger.error("Failed to parse RoutePlayerRequest from envelope " + envelope.correlationId().map(com.markineo.pillar.core.task.CorrelationId::value).orElse("none"), e);
+            logger.error("Failed to parse RoutePlayerRequest from envelope " + envelope.correlationId().map(CorrelationId::value).orElse("none"), e);
             return;
         }
 

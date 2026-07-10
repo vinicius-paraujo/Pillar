@@ -2,6 +2,7 @@ package com.markineo.pillar.velocity.handler;
 
 import com.google.gson.Gson;
 import com.markineo.pillar.core.messaging.SendPlayerMessageRequest;
+import com.markineo.pillar.core.task.CorrelationId;
 import com.markineo.pillar.core.task.Envelope;
 import com.markineo.pillar.core.task.EnvelopeCodec;
 import com.markineo.pillar.core.task.MessageHandler;
@@ -38,7 +39,7 @@ public final class SendPlayerMessageHandler implements MessageHandler {
         try {
             request = gson.fromJson(envelope.payload(), SendPlayerMessageRequest.class);
         } catch (Exception e) {
-            logger.error("Failed to parse SendPlayerMessageRequest from envelope " + envelope.correlationId().map(com.markineo.pillar.core.task.CorrelationId::value).orElse("none"), e);
+            logger.error("Failed to parse SendPlayerMessageRequest from envelope " + envelope.correlationId().map(CorrelationId::value).orElse("none"), e);
             return;
         }
 
