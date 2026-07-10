@@ -9,7 +9,41 @@ minor release.
 
 ## [Unreleased]
 
-_Iteration 2 — health snapshots and routing decisions._
+_Iteration 4 — production hardening and resilience._
+
+## [0.3.0] — 2026-07-10
+
+Third release: MVP consolidation. Brings player routing, cross-server actuation, and the distributed lease primitive.
+
+### Added
+- **Player routing at login** — `PlacementService` composes eligibility, Power of Two Choices (P2C) scoring, and active reservations over the cached fleet health. Velocity intercepts joining players (`PlayerChooseInitialServerEvent`) and routes them to the best candidate for the entry role, or kicks with a localized message if no node is eligible.
+- **In-memory health cache** — `HealthRegistry` runs a background loop to refresh the `HealthSnapshot` for all active nodes via a single `HealthView.fetchAll(cachedFleet)` call, completely removing Redis I/O from the login hot-path.
+- **Cross-server player moves** — `ROUTE_PLAYER` message type allows any node in the control plane to request moving a specific player to a specific server (or role). The proxy actuates the move and replies with the outcome.
+- **Network messaging** — `SEND_PLAYER_MESSAGE` and `BROADCAST` message types allow dispatching text components to specific players or the entire network directly from any backend node.
+- **Generic lease primitive** — `core.lease` and `redis.lease` introduce distributed mutual exclusion without fencing tokens (`SET NX PX` acquire, Lua-based owner-checked renew/release).
+- **MVP Reliability Polish** — Added a 30s periodic PEL drain to automatically retry handlers that failed deterministically (PIL-41); replaced fragile string matching for timeouts with `TimeoutPillarException` (PIL-42); implemented immediate proactive node eviction (`evict(ServerId)`) in `PresenceService` upon connection request failures (PIL-43).
+- **Dynamic Versioning** — Entry points (Paper/Velocity) now extract the plugin version directly from their compiled metadata (`plugin.yml` / `velocity-plugin.json`) instead of hardcoded strings in the startup log.
+
+### Changed
+- Refactored `JsonEnvelopeCodec` payload serialization to O(n) string literals instead of O(3n) JSON subtrees, changing the wire format (Protocol Version bumped to 2).
+- Consolidated Redis connection acquisitions behind a safe `RedisConnector.withResource(fn)` boundary, preventing `JedisPool` leakage.
+- Micro-optimized `ReservationRegistry` to rely on a pure `synchronized ArrayDeque`, eliminating GC pressure from `ConcurrentLinkedQueue` node allocations.
+
+## [0.2.0] — 2026-07-09
+
+Second release: health snapshots and the routing placement logic (pure algorithm, runtime integration deferred to 0.3.0).
+
+### Added
+- **Health snapshots** — Nodes now periodically publish metrics: MSPT, memory usage, player count, world count, and pending signals.
+- **Placement Logic** — Introduced `EligibilityFilter` (hard caps evaluation), `PlacementSelector` (Power of Two Choices algorithm over health data), and `ReservationRegistry` (in-flight connection reservations with TTL).
+- **Simulation Harness** — Added a placement simulation suite to validate synthetic bursts and cap-violation metrics under load.
+- **Dispatch Model Rewrite** — `StreamConsumer` now offloads handler execution to a bounded `ThreadPoolExecutor` worker pool. `XACK` is decoupled from synchronous returns and strictly confirms successful processing.
+- **Idempotency** — Implemented at-least-once dedup keys for incoming stream messages to ensure safe retries.
+- **Minimal PEL reclaim** — Consumers now drain their own PEL on (re)start.
+
+### Changed
+- Subdivided the `redis` package into `presence`, `transport`, and `lifecycle` for architectural clarity.
+- The `/pillar fleet` command now serves from the in-memory `cachedFleet()` to avoid blocking the main thread with `SCAN+MGET`.
 
 ## [0.1.0] — 2026-07-08
 
@@ -56,5 +90,7 @@ messages over Redis. **Pre-release** — for validation, not production.
 - Extracted `lang/` files are not overwritten on update; a stale file can shadow keys
   added in a newer version (PIL-18).
 
-[Unreleased]: https://example.com/pillar/compare/v0.1.0...HEAD
+[Unreleased]: https://example.com/pillar/compare/v0.3.0...HEAD
+[0.3.0]: https://example.com/pillar/compare/v0.2.0...v0.3.0
+[0.2.0]: https://example.com/pillar/compare/v0.1.0...v0.2.0
 [0.1.0]: https://example.com/pillar/releases/tag/v0.1.0
