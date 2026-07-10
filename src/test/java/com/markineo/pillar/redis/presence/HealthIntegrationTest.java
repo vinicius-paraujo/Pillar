@@ -21,7 +21,7 @@ class HealthIntegrationTest extends RedisIntegrationTest {
         Gson gson = new Gson();
         HealthProvider mockProvider = () -> new HealthSnapshot(45.5, 1024L, 4096L, 10, 3, 5);
 
-        HealthService service = new HealthService(connector, id, mockProvider, gson, executors, logger);
+        HealthService service = new HealthService(connector, id, mockProvider, gson, executors, logger, java.time.Duration.ofSeconds(5));
         HealthView view = new HealthView(connector, gson);
 
         service.start();

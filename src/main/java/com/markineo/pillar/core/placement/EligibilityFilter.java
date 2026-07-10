@@ -12,7 +12,7 @@ public final class EligibilityFilter {
 
     public boolean isEligible(HealthSnapshot snapshot) {
         if (snapshot == null) {
-            return true; // Delega o nó cego para o PlacementSelector aplicar a penalidade (PIL-24)
+            return true; // Delegates the blind node to PlacementSelector to apply the penalty (PIL-24)
         }
 
         if ((snapshot.players() + snapshot.pendingSignals()) >= caps.maxPlayers()) {

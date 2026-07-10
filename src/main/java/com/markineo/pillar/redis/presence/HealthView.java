@@ -34,7 +34,7 @@ public final class HealthView {
                 return Optional.empty();
             }
             return Optional.of(gson.fromJson(json, HealthSnapshot.class));
-        } catch (JedisException e) {
+        } catch (JedisException | com.google.gson.JsonSyntaxException e) {
             return Optional.empty();
         }
     }
@@ -55,7 +55,11 @@ public final class HealthView {
             for (int i = 0; i < idArray.length; i++) {
                 String json = values.get(i);
                 if (json != null) {
-                    result.put(idArray[i], gson.fromJson(json, HealthSnapshot.class));
+                    try {
+                        result.put(idArray[i], gson.fromJson(json, HealthSnapshot.class));
+                    } catch (com.google.gson.JsonSyntaxException ignored) {
+                        // Poison data, skip this node
+                    }
                 }
             }
             return result;

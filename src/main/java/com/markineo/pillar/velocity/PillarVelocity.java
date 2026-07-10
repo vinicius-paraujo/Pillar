@@ -23,7 +23,6 @@ import com.markineo.pillar.redis.lifecycle.RedisConnector;
 import com.markineo.pillar.redis.transport.RequestSender;
 import com.markineo.pillar.redis.transport.StreamConsumer;
 import com.markineo.pillar.redis.transport.StreamPublisher;
-import com.markineo.pillar.core.placement.ReservationRegistry;
 import com.markineo.pillar.velocity.command.PillarCommand;
 import com.markineo.pillar.velocity.tasks.VelocityScheduler;
 import com.velocitypowered.api.command.CommandManager;
@@ -94,15 +93,14 @@ public final class PillarVelocity {
         HandlerRegistry handlers = new HandlerRegistry(correlations);
         handlers.register(new PingHandler(selfId, publisher, logger));
 
-        this.consumer = new StreamConsumer(redis, codec, selfId, executors, logger, handlers.asSink(codec, logger), java.time.Duration.ofMinutes(10));
+        this.consumer = new StreamConsumer(redis, codec, selfId, executors, logger, handlers.asSink(codec, logger), 
+                                           settings.consumerDedupWindow(), settings.consumerPoolSize(), settings.consumerQueueCapacity());
         consumer.start();
 
         VelocityHealthProvider healthProvider = new VelocityHealthProvider(server, consumer);
-        this.health = new HealthService(redis, selfId, healthProvider, new Gson(), executors, logger);
+        Gson gson = new Gson();
+        this.health = new HealthService(redis, selfId, healthProvider, gson, executors, logger, settings.healthInterval());
         health.start();
-
-        ReservationRegistry reservationRegistry = new ReservationRegistry(java.time.Clock.systemUTC(), java.time.Duration.ofSeconds(5));
-        presence.onUpdate(fleet -> reservationRegistry.cleanUpDeadNodes(java.util.Set.copyOf(fleet.members())));
 
         RequestSender requestSender = new RequestSender(publisher, correlations);
 

@@ -48,8 +48,7 @@ public final class ReservationRegistry {
     }
 
     private static final class NodeReservations {
-        private final ConcurrentLinkedQueue<Long> queue = new ConcurrentLinkedQueue<>();
-        private final AtomicInteger size = new AtomicInteger(0);
+        private final java.util.ArrayDeque<Long> queue = new java.util.ArrayDeque<>();
         private volatile long lastAccessTime;
 
         NodeReservations(long now) {
@@ -64,26 +63,22 @@ public final class ReservationRegistry {
             return lastAccessTime;
         }
 
-        void add(long expirationTimestamp) {
+        synchronized void add(long expirationTimestamp) {
             queue.offer(expirationTimestamp);
-            size.incrementAndGet();
         }
 
         synchronized void evictExpired(long now) {
             while (!queue.isEmpty() && queue.peek() != null && queue.peek() <= now) {
-                Long removed = queue.poll();
-                if (removed != null) {
-                    size.decrementAndGet();
-                }
+                queue.poll();
             }
         }
 
-        boolean isEmpty() {
-            return size.get() == 0;
+        synchronized boolean isEmpty() {
+            return queue.isEmpty();
         }
 
-        int size() {
-            return size.get();
+        synchronized int size() {
+            return queue.size();
         }
     }
 }

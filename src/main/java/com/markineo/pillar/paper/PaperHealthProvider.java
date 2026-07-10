@@ -2,28 +2,36 @@ package com.markineo.pillar.paper;
 
 import com.markineo.pillar.core.health.HealthProvider;
 import com.markineo.pillar.core.health.HealthSnapshot;
-import com.markineo.pillar.redis.transport.StreamConsumer;
+import com.markineo.pillar.core.health.SignalTracker;
 import org.bukkit.Bukkit;
+import org.bukkit.plugin.Plugin;
 
 public final class PaperHealthProvider implements HealthProvider {
 
-    private final StreamConsumer consumer;
+    private final SignalTracker tracker;
+    private volatile double cachedMspt;
+    private volatile int cachedPlayers;
+    private volatile int cachedWorlds;
 
-    public PaperHealthProvider(StreamConsumer consumer) {
-        this.consumer = consumer;
+    public PaperHealthProvider(Plugin plugin, SignalTracker tracker) {
+        this.tracker = tracker;
+        Bukkit.getScheduler().runTaskTimer(plugin, this::updateCache, 20L, 20L);
+    }
+
+    private void updateCache() {
+        this.cachedMspt = averageMspt();
+        this.cachedPlayers = Bukkit.getOnlinePlayers().size();
+        this.cachedWorlds = Bukkit.getWorlds().size();
     }
 
     @Override
     public HealthSnapshot current() {
-        double mspt = averageMspt();
         Runtime runtime = Runtime.getRuntime();
         long usedMemory = runtime.totalMemory() - runtime.freeMemory();
         long maxMemory = runtime.maxMemory();
-        int players = Bukkit.getOnlinePlayers().size();
-        int worlds = Bukkit.getWorlds().size();
-        int pendingSignals = consumer != null ? consumer.pendingSignals() : 0;
+        int pendingSignals = tracker != null ? tracker.pendingSignals() : 0;
 
-        return new HealthSnapshot(mspt, usedMemory, maxMemory, players, worlds, pendingSignals);
+        return new HealthSnapshot(cachedMspt, usedMemory, maxMemory, cachedPlayers, cachedWorlds, pendingSignals);
     }
 
     private double averageMspt() {

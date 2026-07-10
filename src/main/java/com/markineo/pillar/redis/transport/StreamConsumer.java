@@ -3,6 +3,7 @@ package com.markineo.pillar.redis.transport;
 import com.markineo.pillar.redis.RedisKeys;
 import com.markineo.pillar.redis.lifecycle.RedisConnector;
 import com.markineo.pillar.concurrent.PillarExecutors;
+import com.markineo.pillar.core.health.SignalTracker;
 import com.markineo.pillar.core.identity.ServerId;
 import com.markineo.pillar.core.task.Envelope;
 import com.markineo.pillar.core.task.EnvelopeCodec;
@@ -25,15 +26,13 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.function.Consumer;
 
-public final class StreamConsumer implements AutoCloseable {
+public final class StreamConsumer implements AutoCloseable, SignalTracker {
 
     private static final int BLOCK_MILLIS = 2000;
     private static final int MAX_ENTRIES_PER_READ = 32;
     private static final long BACKOFF_MILLIS = 1000;
     private static final int MAX_ATTEMPTS = 3;
-
-    private static final int WORKER_POOL_SIZE = 4;
-    private static final int WORKER_QUEUE_CAPACITY = 128;
+    private static final int PROCESSING_LOCK_SECONDS = 30;
 
     private final RedisConnector connector;
     private final EnvelopeCodec codec;
@@ -43,13 +42,16 @@ public final class StreamConsumer implements AutoCloseable {
     private final Consumer<Envelope> sink;
     private final String inbox;
     private final Duration dedupWindow;
+    private final int poolSize;
+    private final int queueCapacity;
 
     private volatile boolean running;
     private ExecutorService worker;
     private ThreadPoolExecutor dispatchPool;
 
     public StreamConsumer(RedisConnector connector, EnvelopeCodec codec, ServerId self,
-                          PillarExecutors executors, PillarLogger logger, Consumer<Envelope> sink, Duration dedupWindow) {
+                          PillarExecutors executors, PillarLogger logger, Consumer<Envelope> sink,
+                          Duration dedupWindow, int poolSize, int queueCapacity) {
         this.connector = connector;
         this.codec = codec;
         this.self = self;
@@ -57,12 +59,14 @@ public final class StreamConsumer implements AutoCloseable {
         this.logger = logger;
         this.sink = sink;
         this.dedupWindow = dedupWindow;
+        this.poolSize = poolSize;
+        this.queueCapacity = queueCapacity;
         this.inbox = RedisKeys.inbox(self);
     }
 
     public void start() {
         this.running = true;
-        this.dispatchPool = executors.newBoundedWorkerPool("dispatch", WORKER_POOL_SIZE, WORKER_QUEUE_CAPACITY);
+        this.dispatchPool = executors.newBoundedWorkerPool("dispatch", poolSize, queueCapacity);
         this.worker = executors.newSingleThread("stream-consumer");
         worker.submit(this::runLoop);
     }
@@ -178,53 +182,74 @@ public final class StreamConsumer implements AutoCloseable {
             dispatchPool.execute(() -> {
                 try (Jedis jedis = connector.pool().getResource()) {
                     acknowledgeAndClean(jedis, entry.getID());
-                } catch (JedisException ignored) {}
+                } catch (JedisException e) {
+                    logger.warn("Failed to clean poison entry " + entry.getID() + ": " + e.getMessage());
+                }
             });
             return null;
         }
     }
 
     private void dispatch(StreamEntry entry, Envelope envelope, boolean isPel) {
-        dispatchPool.execute(() -> {
-            try (Jedis jedis = connector.pool().getResource()) {
-                long attempt = 1;
-                if (isPel) {
-                    attempt = jedis.hincrBy(RedisKeys.attempts(self), entry.getID().toString(), 1);
-                    if (attempt > MAX_ATTEMPTS) {
-                        logger.warn("Dead-lettering inbox entry " + entry.getID() + " after " + attempt + " attempts.");
-                        acknowledgeAndClean(jedis, entry.getID());
-                        return;
-                    }
-                }
+        dispatchPool.execute(() -> processSafely(entry, envelope, isPel));
+    }
 
-                String dedupKey = RedisKeys.dedup(self, entry.getID().toString());
-                // 30-second processing lock to ensure only one thread/node processes this request if the PEL retries too early
-                String lock = jedis.set(dedupKey, "PROCESSING", SetParams.setParams().nx().ex(30));
-                if (!"OK".equals(lock)) {
-                    String state = jedis.get(dedupKey);
-                    if ("DONE".equals(state)) {
-                        logger.info("Skipping already processed inbox entry " + entry.getID());
-                        acknowledgeAndClean(jedis, entry.getID());
-                    } else {
-                        logger.info("Skipping currently processing inbox entry " + entry.getID());
-                    }
-                    return;
-                }
-
-                try {
-                    sink.accept(envelope);
-
-                    // Successfully processed. Mark for the entire dedup window.
-                    jedis.setex(dedupKey, dedupWindow.toSeconds(), "DONE");
-                    acknowledgeAndClean(jedis, entry.getID());
-                } catch (RuntimeException handlerFailure) {
-                    logger.error("Handler failed for inbox entry " + entry.getID() + " (attempt " + attempt + "); left pending.", handlerFailure);
-                    jedis.del(dedupKey); // Release lock so it can be retried immediately
-                }
-            } catch (JedisException e) {
-                logger.warn("Redis error while processing entry " + entry.getID() + ": " + e.getMessage());
+    private void processSafely(StreamEntry entry, Envelope envelope, boolean isPel) {
+        try (Jedis jedis = connector.pool().getResource()) {
+            long attempt = trackAttempt(jedis, entry, isPel);
+            if (attempt > MAX_ATTEMPTS) {
+                return;
             }
-        });
+
+            if (!acquireProcessingLock(jedis, entry)) {
+                return;
+            }
+
+            executeHandler(jedis, entry, envelope, attempt);
+        } catch (JedisException e) {
+            logger.warn("Redis error while processing entry " + entry.getID() + ": " + e.getMessage());
+        }
+    }
+
+    private long trackAttempt(Jedis jedis, StreamEntry entry, boolean isPel) {
+        if (!isPel) {
+            return 1;
+        }
+        long attempt = jedis.hincrBy(RedisKeys.attempts(self), entry.getID().toString(), 1);
+        if (attempt > MAX_ATTEMPTS) {
+            logger.warn("Dead-lettering inbox entry " + entry.getID() + " after " + attempt + " attempts.");
+            acknowledgeAndClean(jedis, entry.getID());
+        }
+        return attempt;
+    }
+
+    private boolean acquireProcessingLock(Jedis jedis, StreamEntry entry) {
+        String dedupKey = RedisKeys.dedup(self, entry.getID().toString());
+        String lock = jedis.set(dedupKey, "PROCESSING", SetParams.setParams().nx().ex(PROCESSING_LOCK_SECONDS));
+        if ("OK".equals(lock)) {
+            return true;
+        }
+
+        String state = jedis.get(dedupKey);
+        if ("DONE".equals(state)) {
+            logger.info("Skipping already processed inbox entry " + entry.getID());
+            acknowledgeAndClean(jedis, entry.getID());
+        } else {
+            logger.info("Skipping currently processing inbox entry " + entry.getID());
+        }
+        return false;
+    }
+
+    private void executeHandler(Jedis jedis, StreamEntry entry, Envelope envelope, long attempt) {
+        String dedupKey = RedisKeys.dedup(self, entry.getID().toString());
+        try {
+            sink.accept(envelope);
+            jedis.setex(dedupKey, dedupWindow.toSeconds(), "DONE");
+            acknowledgeAndClean(jedis, entry.getID());
+        } catch (RuntimeException handlerFailure) {
+            logger.error("Handler failed for inbox entry " + entry.getID() + " (attempt " + attempt + "); left pending.", handlerFailure);
+            jedis.del(dedupKey); // Release lock so it can be retried immediately
+        }
     }
 
     private void acknowledgeAndClean(Jedis jedis, StreamEntryID id) {
@@ -234,9 +259,9 @@ public final class StreamConsumer implements AutoCloseable {
 
     private List<StreamEntry> entriesFrom(List<Map.Entry<String, List<StreamEntry>>> streams) {
         if (streams == null) {
-            return java.util.List.of();
+            return List.of();
         }
-        List<StreamEntry> entries = new java.util.ArrayList<>();
+        List<StreamEntry> entries = new ArrayList<>();
         for (Map.Entry<String, List<StreamEntry>> stream : streams) {
             entries.addAll(stream.getValue());
         }
@@ -254,7 +279,7 @@ public final class StreamConsumer implements AutoCloseable {
     private void ensureConsumerGroup() {
         try (Jedis jedis = connector.pool().getResource()) {
             // MKSTREAM creates the inbox on first use; XGROUP_LAST_ENTRY ($) means the group
-            // only sees messages published after it exists ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â history predating this node is
+            // only sees messages published after it exists — history predating this node is
             // irrelevant to a fresh consumer.
             jedis.xgroupCreate(inbox, StreamProtocol.CONSUMER_GROUP, StreamEntryID.XGROUP_LAST_ENTRY, true);
         } catch (JedisDataException e) {

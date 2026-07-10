@@ -38,12 +38,12 @@ class PingPongIntegrationTest extends RedisIntegrationTest {
         HandlerRegistry betaHandlers = new HandlerRegistry(new CorrelationRegistry(scheduler));
         betaHandlers.register(new PingHandler(beta, publisher, logger));
         StreamConsumer betaConsumer = new StreamConsumer(connector, codec, beta, executors, logger,
-                betaHandlers.asSink(codec, logger), java.time.Duration.ofMinutes(10));
+                betaHandlers.asSink(codec, logger), java.time.Duration.ofMinutes(10), 4, 128);
 
         // Alpha: routes pongs back to the pending future.
         HandlerRegistry alphaHandlers = new HandlerRegistry(correlations);
         StreamConsumer alphaConsumer = new StreamConsumer(connector, codec, alpha, executors, logger,
-                alphaHandlers.asSink(codec, logger), java.time.Duration.ofMinutes(10));
+                alphaHandlers.asSink(codec, logger), java.time.Duration.ofMinutes(10), 4, 128);
 
         betaConsumer.start();
         alphaConsumer.start();

@@ -77,11 +77,12 @@ public final class Pillar extends JavaPlugin {
         HandlerRegistry handlers = new HandlerRegistry(correlations);
         handlers.register(new PingHandler(selfId, publisher, logger));
 
-        this.consumer = new StreamConsumer(redis, codec, selfId, executors, logger, handlers.asSink(codec, logger), Duration.ofMinutes(10));
+        this.consumer = new StreamConsumer(redis, codec, selfId, executors, logger, handlers.asSink(codec, logger), 
+                                           settings.consumerDedupWindow(), settings.consumerPoolSize(), settings.consumerQueueCapacity());
         consumer.start();
 
-        PaperHealthProvider healthProvider = new PaperHealthProvider(consumer);
-        this.health = new HealthService(redis, selfId, healthProvider, new Gson(), executors, logger);
+        PaperHealthProvider healthProvider = new PaperHealthProvider(this, consumer);
+        this.health = new HealthService(redis, selfId, healthProvider, new Gson(), executors, logger, settings.healthInterval());
         health.start();
 
         RequestSender requestSender = new RequestSender(publisher, correlations);

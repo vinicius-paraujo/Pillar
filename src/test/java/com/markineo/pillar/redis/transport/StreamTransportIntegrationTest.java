@@ -31,7 +31,7 @@ class StreamTransportIntegrationTest extends RedisIntegrationTest {
         ServerId self = new ServerId("skyblock-1");
         BlockingQueue<Envelope> received = new LinkedBlockingQueue<>();
 
-        StreamConsumer consumer = new StreamConsumer(connector, codec, self, executors, logger, received::add, java.time.Duration.ofMinutes(10));
+        StreamConsumer consumer = new StreamConsumer(connector, codec, self, executors, logger, received::add, java.time.Duration.ofMinutes(10), 4, 128);
         consumer.start();
         try {
             await("consumer group was never created", () -> groupExists(self));
@@ -76,7 +76,7 @@ class StreamTransportIntegrationTest extends RedisIntegrationTest {
             if (envelope.type().value().equals("pillar.fail")) {
                 throw new RuntimeException("Simulated first-attempt failure");
             }
-        }, java.time.Duration.ofMinutes(10));
+        }, java.time.Duration.ofMinutes(10), 4, 128);
 
         consumer.start();
         try {
@@ -126,7 +126,7 @@ class StreamTransportIntegrationTest extends RedisIntegrationTest {
             if (envelope.type().value().equals("pillar.fail")) {
                 throw new RuntimeException("Intentional handler failure");
             }
-        }, java.time.Duration.ofMinutes(10));
+        }, java.time.Duration.ofMinutes(10), 4, 128);
 
         consumer.start();
         try {
@@ -156,7 +156,7 @@ class StreamTransportIntegrationTest extends RedisIntegrationTest {
             received.add(envelope);
             invocationCount.incrementAndGet();
             throw new RuntimeException("Intentional handler failure");
-        }, java.time.Duration.ofMinutes(10));
+        }, java.time.Duration.ofMinutes(10), 4, 128);
         consumer.start();
         try {
             Envelope deliveredFail = received.poll(5, TimeUnit.SECONDS);
@@ -173,7 +173,7 @@ class StreamTransportIntegrationTest extends RedisIntegrationTest {
             received.add(envelope);
             invocationCount.incrementAndGet();
             throw new RuntimeException("Intentional handler failure");
-        }, java.time.Duration.ofMinutes(10));
+        }, java.time.Duration.ofMinutes(10), 4, 128);
         consumer.start();
         try {
             Envelope deliveredFail = received.poll(5, TimeUnit.SECONDS);
@@ -190,7 +190,7 @@ class StreamTransportIntegrationTest extends RedisIntegrationTest {
             received.add(envelope);
             invocationCount.incrementAndGet();
             throw new RuntimeException("Intentional handler failure");
-        }, java.time.Duration.ofMinutes(10));
+        }, java.time.Duration.ofMinutes(10), 4, 128);
         consumer.start();
         try {
             Envelope deliveredFail = received.poll(5, TimeUnit.SECONDS);
@@ -208,7 +208,7 @@ class StreamTransportIntegrationTest extends RedisIntegrationTest {
         consumer = new StreamConsumer(connector, codec, self, executors, logger, envelope -> {
             received.add(envelope);
             invocationCount.incrementAndGet();
-        }, java.time.Duration.ofMinutes(10));
+        }, java.time.Duration.ofMinutes(10), 4, 128);
         consumer.start();
         try {
             // Wait to ensure processing is done
@@ -250,7 +250,7 @@ class StreamTransportIntegrationTest extends RedisIntegrationTest {
         StreamConsumer consumer = new StreamConsumer(connector, codec, self, executors, logger, envelope -> {
             invocationCount.incrementAndGet();
             received.add(envelope);
-        }, java.time.Duration.ofMinutes(10));
+        }, java.time.Duration.ofMinutes(10), 4, 128);
         
         consumer.start();
         try {

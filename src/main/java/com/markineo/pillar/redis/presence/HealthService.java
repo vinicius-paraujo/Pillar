@@ -12,24 +12,24 @@ import java.util.concurrent.TimeUnit;
 
 public final class HealthService implements AutoCloseable {
 
-    private static final long INTERVAL_MILLIS = 5000;
-
     private final HealthPublisher publisher;
     private final PillarExecutors executors;
     private final PillarLogger logger;
+    private final long intervalMillis;
 
     private ScheduledExecutorService loop;
 
     public HealthService(RedisConnector connector, ServerId self, HealthProvider provider,
-                         Gson gson, PillarExecutors executors, PillarLogger logger) {
+                         Gson gson, PillarExecutors executors, PillarLogger logger, java.time.Duration interval) {
         this.publisher = new HealthPublisher(connector, self, provider, gson);
         this.executors = executors;
         this.logger = logger;
+        this.intervalMillis = interval.toMillis();
     }
 
     public void start() {
         this.loop = executors.newSingleThreadScheduled("health");
-        loop.scheduleWithFixedDelay(this::tick, 0, INTERVAL_MILLIS, TimeUnit.MILLISECONDS);
+        loop.scheduleWithFixedDelay(this::tick, 0, intervalMillis, TimeUnit.MILLISECONDS);
     }
 
     @Override

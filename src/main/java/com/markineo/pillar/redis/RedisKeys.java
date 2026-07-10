@@ -1,6 +1,5 @@
 package com.markineo.pillar.redis;
 
-import com.markineo.pillar.redis.RedisKeys;
 import com.markineo.pillar.core.identity.ServerId;
 
 public final class RedisKeys {
