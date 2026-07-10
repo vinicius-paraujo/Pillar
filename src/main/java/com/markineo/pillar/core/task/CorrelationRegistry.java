@@ -1,6 +1,7 @@
 package com.markineo.pillar.core.task;
 
 import com.markineo.pillar.error.PillarException;
+import com.markineo.pillar.error.TimeoutPillarException;
 import java.time.Duration;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -64,7 +65,7 @@ public final class CorrelationRegistry {
     private void expire(CorrelationId id) {
         Pending entry = pending.remove(id.value());
         if (entry != null) {
-            entry.future.completeExceptionally(new PillarException("Request timed out: " + id.value()));
+            entry.future.completeExceptionally(new TimeoutPillarException("Request timed out: " + id.value()));
         }
     }
 

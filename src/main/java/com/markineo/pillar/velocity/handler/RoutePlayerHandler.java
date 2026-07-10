@@ -114,9 +114,11 @@ public final class RoutePlayerHandler implements MessageHandler {
         // If the proxy crashes in the millisecond window between XACK and this whenComplete callback, the caller will never receive
         // the response and will eventually time out. This is an acceptable MVP trade-off to avoid blocking the dispatch thread.
         final RegisteredServer finalTarget = targetServer;
+        final ServerId finalTargetId = new ServerId(finalTarget.getServerInfo().getName());
         player.createConnectionRequest(finalTarget).connect().whenComplete((result, ex) -> {
             if (ex != null) {
                 logger.error("Connection request failed for player " + player.getUsername(), ex);
+                presence.evict(finalTargetId);
                 reply(envelope, RouteOutcome.CONNECTION_FAILED);
                 return;
             }
@@ -124,6 +126,7 @@ public final class RoutePlayerHandler implements MessageHandler {
                 logger.debug("Routed player " + player.getUsername() + " to " + finalTarget.getServerInfo().getName() + ".");
                 reply(envelope, RouteOutcome.SUCCESS);
             } else {
+                presence.evict(finalTargetId);
                 reply(envelope, RouteOutcome.CONNECTION_FAILED);
             }
         });

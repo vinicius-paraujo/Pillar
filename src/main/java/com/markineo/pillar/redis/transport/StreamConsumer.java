@@ -23,7 +23,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
 public final class StreamConsumer implements AutoCloseable, SignalTracker {
@@ -47,6 +49,7 @@ public final class StreamConsumer implements AutoCloseable, SignalTracker {
 
     private volatile boolean running;
     private ExecutorService worker;
+    private ScheduledExecutorService pelDrainer;
     private ThreadPoolExecutor dispatchPool;
 
     public StreamConsumer(RedisConnector connector, EnvelopeCodec codec, ServerId self,
@@ -68,7 +71,9 @@ public final class StreamConsumer implements AutoCloseable, SignalTracker {
         this.running = true;
         this.dispatchPool = executors.newBoundedWorkerPool("dispatch", poolSize, queueCapacity);
         this.worker = executors.newSingleThread("stream-consumer");
+        this.pelDrainer = executors.newSingleThreadScheduled("pel-drainer");
         worker.submit(this::runLoop);
+        pelDrainer.scheduleWithFixedDelay(this::drainPendingEntries, 30, 30, TimeUnit.SECONDS);
     }
 
     @Override
@@ -79,6 +84,9 @@ public final class StreamConsumer implements AutoCloseable, SignalTracker {
         }
         if (worker != null) {
             worker.shutdownNow();
+        }
+        if (pelDrainer != null) {
+            pelDrainer.shutdownNow();
         }
     }
 
@@ -290,7 +298,7 @@ public final class StreamConsumer implements AutoCloseable, SignalTracker {
     }
 
     private boolean isGroupAlreadyExists(JedisDataException e) {
-        return e.getMessage() != null && e.getMessage().contains("BUSYGROUP");
+        return e.getMessage() != null && e.getMessage().startsWith("BUSYGROUP");
     }
 
     // Sleeps for the backoff window between attempts; returns true if the thread was

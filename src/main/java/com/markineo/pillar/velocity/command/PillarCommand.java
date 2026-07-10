@@ -6,6 +6,7 @@ import com.markineo.pillar.config.Lang;
 import com.markineo.pillar.core.fleet.FleetSnapshot;
 import com.markineo.pillar.core.identity.ServerId;
 import com.markineo.pillar.core.identity.ServerIdentity;
+import com.markineo.pillar.error.TimeoutPillarException;
 import com.markineo.pillar.logger.PillarLogger;
 import com.markineo.pillar.redis.transport.InboxDiagnostics;
 import com.markineo.pillar.redis.presence.PresenceService;
@@ -126,7 +127,8 @@ public final class PillarCommand implements SimpleCommand {
         requestSender.send(target, ping, Duration.ofSeconds(5)).whenComplete((pong, error) -> {
             scheduler.runSync(() -> {
                 if (error != null) {
-                    if (error.getMessage() != null && error.getMessage().contains("timed out")) {
+                    Throwable root = error instanceof java.util.concurrent.CompletionException ? error.getCause() : error;
+                    if (root instanceof TimeoutPillarException) {
                         source.sendMessage(render("ping.timeout", Placeholder.unparsed("server", target.value())));
                     } else {
                         source.sendMessage(render("ping.failed", 

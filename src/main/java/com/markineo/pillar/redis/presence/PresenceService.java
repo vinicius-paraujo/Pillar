@@ -3,6 +3,7 @@ package com.markineo.pillar.redis.presence;
 import com.markineo.pillar.redis.lifecycle.RedisConnector;
 import com.markineo.pillar.concurrent.PillarExecutors;
 import com.markineo.pillar.core.fleet.FleetSnapshot;
+import com.markineo.pillar.core.identity.ServerId;
 import com.markineo.pillar.core.identity.ServerIdentity;
 import com.markineo.pillar.logger.PillarLogger;
 
@@ -46,6 +47,19 @@ public class PresenceService implements AutoCloseable {
     // The last cached read; for hot paths that must not block on Redis.
     public FleetSnapshot cachedFleet() {
         return cachedFleet;
+    }
+
+    // Immediately removes a dead node from the cached fleet to prevent further routing to it.
+    public void evict(ServerId deadNode) {
+        FleetSnapshot current = this.cachedFleet;
+        if (current.contains(deadNode)) {
+            this.cachedFleet = FleetSnapshot.of(
+                    current.members().stream()
+                            .filter(member -> !member.id().equals(deadNode))
+                            .toList()
+            );
+            logger.warn("Evicted dead node " + deadNode.value() + " from cached fleet proactively.");
+        }
     }
 
     @Override
