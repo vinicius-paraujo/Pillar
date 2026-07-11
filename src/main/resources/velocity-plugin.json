@@ -6,5 +6,5 @@
   "authors": [
     "Markineo"
   ],
-  "main": "com.markineo.pillar.velocity.PillarVelocity"
+  "main": "br.com.markineo.pillar.velocity.PillarVelocity"
 }
