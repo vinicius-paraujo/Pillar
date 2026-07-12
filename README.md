@@ -225,4 +225,6 @@ mutable static state, and the smallest solution that works.
 
 Apache-2.0. <!-- TODO: add LICENSE file and per-source headers. -->
 
-<!-- TODO: optional footer — AI-assistance disclosure, open-source strategy note. -->
+## Transparency
+
+**AI-Assistance Disclosure:** Pillar was architected, designed, and reviewed by human engineering. Artificial Intelligence (AI) coding assistants were used as a pair-programming tool during development to accelerate implementation, refine concurrency patterns, and polish the code against strict, pre-defined architectural rules. The system design, problem-solving, and final sign-off are entirely human-driven.
