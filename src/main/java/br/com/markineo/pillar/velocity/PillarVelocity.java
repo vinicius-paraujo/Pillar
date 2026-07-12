@@ -67,6 +67,7 @@ public final class PillarVelocity {
     private ScheduledExecutorService timeoutScheduler;
     private CorrelationRegistry correlations;
     private StreamConsumer consumer;
+    private br.com.markineo.pillar.redis.transport.InboxReaper inboxReaper;
     private final com.velocitypowered.api.plugin.PluginContainer container;
 
     @Inject
@@ -146,6 +147,9 @@ public final class PillarVelocity {
         this.health = new HealthService(redis, selfId, healthProvider, gson, executors, logger, settings.healthInterval());
         health.start();
 
+        this.inboxReaper = new br.com.markineo.pillar.redis.transport.InboxReaper(redis, presence, executors, logger);
+        inboxReaper.start();
+
         RequestSender requestSender = new RequestSender(publisher, correlations);
 
         CommandManager commands = server.getCommandManager();
@@ -172,6 +176,9 @@ public final class PillarVelocity {
         }
         if (timeoutScheduler != null) {
             timeoutScheduler.shutdownNow();
+        }
+        if (inboxReaper != null) {
+            inboxReaper.close();
         }
         if (health != null) {
             health.close();
