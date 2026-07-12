@@ -15,7 +15,10 @@ import com.velocitypowered.api.proxy.ProxyServer;
 import com.velocitypowered.api.proxy.server.RegisteredServer;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 
+import br.com.markineo.pillar.redis.lifecycle.RedisConnector;
+
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public final class LoginListener {
 
@@ -26,9 +29,13 @@ public final class LoginListener {
     private final PillarSettings settings;
     private final Lang lang;
     private final PillarLogger logger;
+    private final RedisConnector connector;
+
+    private final AtomicInteger degradedRefusalCount = new AtomicInteger(0);
+    private volatile boolean wasDegraded = false;
 
     public LoginListener(ProxyServer server, PlacementService placement, PresenceService presence, 
-                         HealthRegistry healthRegistry, PillarSettings settings, Lang lang, PillarLogger logger) {
+                         HealthRegistry healthRegistry, PillarSettings settings, Lang lang, PillarLogger logger, RedisConnector connector) {
         this.server = server;
         this.placement = placement;
         this.presence = presence;
@@ -36,6 +43,7 @@ public final class LoginListener {
         this.settings = settings;
         this.lang = lang;
         this.logger = logger;
+        this.connector = connector;
     }
 
     @Subscribe
@@ -43,6 +51,14 @@ public final class LoginListener {
         ServerRole role = new ServerRole(settings.entryRole());
         String playerName = event.getPlayer().getUsername();
         
+        boolean isDegraded = presence.isStale();
+        if (wasDegraded && !isDegraded) {
+            degradedRefusalCount.set(0);
+            wasDegraded = false;
+        } else if (isDegraded) {
+            wasDegraded = true;
+        }
+
         try {
             ServerIdentity chosen = placement.place(
                     role, 
@@ -61,7 +77,14 @@ public final class LoginListener {
                 event.getPlayer().disconnect(MiniMessage.miniMessage().deserialize(message));
             }
         } catch (NoEligibleNodeException e) {
-            logger.warn("Failed to place player " + playerName + ": no eligible node for role " + role.value() + ". Refusing connection.");
+            if (isDegraded) {
+                int count = degradedRefusalCount.incrementAndGet();
+                if (count == 1) {
+                    logger.warn("Network degraded and staleness window elapsed. Refusing login for " + playerName + " and suppressing further refusal logs until recovery.");
+                }
+            } else {
+                logger.warn("Failed to place player " + playerName + ": no eligible node for role " + role.value() + ". Refusing connection.");
+            }
             String message = lang.get("routing.no-eligible-node");
             event.getPlayer().disconnect(MiniMessage.miniMessage().deserialize(message));
         }

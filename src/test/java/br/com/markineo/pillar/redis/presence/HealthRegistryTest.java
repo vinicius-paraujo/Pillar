@@ -17,6 +17,7 @@ import java.time.Duration;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -32,6 +33,8 @@ class HealthRegistryTest {
     private AtomicReference<Map<ServerId, HealthSnapshot>> stubbedHealth;
     private AtomicReference<RuntimeException> fetchException;
 
+    private AtomicReference<Boolean> simulateJedisException;
+
     private PresenceService stubPresence;
     private HealthView stubHealthView;
 
@@ -45,8 +48,16 @@ class HealthRegistryTest {
         stubbedFleet = new AtomicReference<>(FleetSnapshot.empty());
         stubbedHealth = new AtomicReference<>(Map.of());
         fetchException = new AtomicReference<>(null);
+        simulateJedisException = new AtomicReference<>(false);
 
-        stubPresence = new PresenceService(null, null, executors, logger) {
+        FleetView stubFleetView = new FleetView(null) {
+            @Override
+            public Optional<FleetSnapshot> snapshot() {
+                return Optional.of(stubbedFleet.get());
+            }
+        };
+
+        stubPresence = new PresenceService(null, null, stubFleetView, executors, logger, Duration.ofMillis(100), Duration.ofSeconds(30)) {
             @Override
             public FleetSnapshot cachedFleet() {
                 return stubbedFleet.get();
@@ -59,21 +70,23 @@ class HealthRegistryTest {
 
         stubHealthView = new HealthView(null, null) {
             @Override
-            public Map<ServerId, HealthSnapshot> fetchAll(Collection<ServerId> ids) {
+            public java.util.Optional<Map<ServerId, HealthSnapshot>> fetchAll(Collection<ServerId> ids) {
                 if (fetchException.get() != null) {
                     throw fetchException.get();
                 }
-                // Simulate HealthView behavior: missing ids are just absent from map
+                if (simulateJedisException.get()) {
+                    return java.util.Optional.empty();
+                }
                 Map<ServerId, HealthSnapshot> all = stubbedHealth.get();
-                return ids.stream()
+                return java.util.Optional.of(ids.stream()
                         .filter(all::containsKey)
-                        .collect(java.util.stream.Collectors.toMap(id -> id, all::get));
+                        .collect(java.util.stream.Collectors.toMap(id -> id, all::get)));
             }
         };
 
         // Use a short interval for test to tick quickly
         var reservations = new br.com.markineo.pillar.core.placement.ReservationRegistry(java.time.Clock.systemUTC(), Duration.ofSeconds(5));
-        registry = new HealthRegistry(stubPresence, stubHealthView, executors, logger, Duration.ofMillis(10), reservations);
+        registry = new HealthRegistry(stubPresence, stubHealthView, executors, logger, Duration.ofMillis(10), Duration.ofMillis(300), reservations);
         registry.start();
     }
 
@@ -98,7 +111,7 @@ class HealthRegistryTest {
     @Test
     void missingNodeDataResultsInAbsenceFromCache() throws InterruptedException {
         ServerId id1 = new ServerId("alpha");
-        ServerId id2 = new ServerId("beta"); // No health data for beta
+        ServerId id2 = new ServerId("beta");
         
         stubbedFleet.set(FleetSnapshot.of(List.of(
                 new ServerIdentity(id1, new ServerRole("hub")),
@@ -131,7 +144,7 @@ class HealthRegistryTest {
     }
 
     @Test
-    void fetchFailureMaintainsDegradedState() throws InterruptedException {
+    void fetchFailureMaintainsDegradedStateUntilWindowExpires() throws InterruptedException {
         ServerId id = new ServerId("alpha");
         stubbedFleet.set(FleetSnapshot.of(List.of(new ServerIdentity(id, new ServerRole("hub")))));
         
@@ -140,18 +153,16 @@ class HealthRegistryTest {
         Thread.sleep(50);
         assertFalse(registry.snapshot().isEmpty());
 
-        // Now fetching throws RuntimeException (like GSON bug)
-        fetchException.set(new RuntimeException("Simulated unexpected failure"));
+        // Now fetching fails (simulate JedisException, returns Optional.empty)
+        simulateJedisException.set(true);
         Thread.sleep(50);
 
-        // Map is NOT cleared if exception is caught in HealthRegistry tick
-        assertFalse(registry.snapshot().isEmpty(), "Unexpected exceptions should retain previous good state");
+        // Map is NOT cleared immediately because of the staleness window
+        assertFalse(registry.snapshot().isEmpty(), "Read failure should retain previous good state during window");
 
-        fetchException.set(null);
-        
-        // However, if HealthView returns empty (simulating JedisException caught inside HealthView)
-        stubbedHealth.set(Map.of());
-        Thread.sleep(50);
-        assertTrue(registry.snapshot().isEmpty(), "Cache should clear when HealthView returns empty due to Redis failure");
+        // Wait for staleness window to expire (300ms)
+        Thread.sleep(400);
+
+        assertTrue(registry.snapshot().isEmpty(), "Cache should clear when window expires");
     }
 }

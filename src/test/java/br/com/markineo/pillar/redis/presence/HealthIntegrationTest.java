@@ -46,7 +46,7 @@ class HealthIntegrationTest extends RedisIntegrationTest {
             assertEquals(5, snapshot.pendingSignals());
 
             // Test fetchAll
-            var map = view.fetchAll(Set.of(id, new ServerId("missing")));
+            var map = view.fetchAll(Set.of(id, new ServerId("missing"))).orElseThrow();
             assertEquals(1, map.size());
             assertTrue(map.containsKey(id));
             assertEquals(10, map.get(id).players());
@@ -69,7 +69,7 @@ class HealthIntegrationTest extends RedisIntegrationTest {
             jedis.set(RedisKeys.health(poison), "{\"mspt\":-5,\"usedMemory\":512,\"maxMemory\":1024,\"players\":5,\"worlds\":1,\"pendingSignals\":0}");
         }
 
-        Map<ServerId, HealthSnapshot> result = view.fetchAll(Set.of(valid, poison));
+        Map<ServerId, HealthSnapshot> result = view.fetchAll(Set.of(valid, poison)).orElseThrow();
 
         assertEquals(1, result.size(), "Only the valid node should be in the result");
         assertTrue(result.containsKey(valid));

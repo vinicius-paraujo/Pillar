@@ -4,7 +4,7 @@ plugins {
 }
 
 group = 'br.com.markineo.pillar'
-version = '0.3.0'
+version = '0.4.0'
 
 java {
     toolchain {
@@ -54,11 +54,11 @@ shadowJar {
     mergeServiceFiles()
     exclude 'META-INF/maven/**'
 
-    relocate 'redis.clients', 'com.markineo.pillar.lib.jedis'
-    relocate 'org.apache.commons.pool2', 'com.markineo.pillar.lib.pool2'
-    relocate 'com.google.gson', 'com.markineo.pillar.lib.gson'
-    relocate 'org.json', 'com.markineo.pillar.lib.json'
-    relocate 'org.yaml.snakeyaml', 'com.markineo.pillar.lib.snakeyaml'
+    relocate 'redis.clients', 'br.com.markineo.pillar.lib.jedis'
+    relocate 'org.apache.commons.pool2', 'br.com.markineo.pillar.lib.pool2'
+    relocate 'com.google.gson', 'br.com.markineo.pillar.lib.gson'
+    relocate 'org.json', 'br.com.markineo.pillar.lib.json'
+    relocate 'org.yaml.snakeyaml', 'br.com.markineo.pillar.lib.snakeyaml'
 }
 
 build.dependsOn shadowJar

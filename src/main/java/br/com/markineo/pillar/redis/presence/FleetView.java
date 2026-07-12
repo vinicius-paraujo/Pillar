@@ -12,8 +12,9 @@ import redis.clients.jedis.resps.ScanResult;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
-public final class FleetView {
+public class FleetView {
     private static final String INITIAL_SCAN_CURSOR = ScanParams.SCAN_POINTER_START;
     private static final int SCAN_BATCH_SIZE = 100;
 
@@ -23,14 +24,14 @@ public final class FleetView {
         this.connector = connector;
     }
 
-    public FleetSnapshot snapshot() {
+    public Optional<FleetSnapshot> snapshot() {
         return connector.withResource(jedis -> {
             List<String> keys = scanPresenceKeys(jedis);
             if (keys.isEmpty()) {
                 return FleetSnapshot.empty();
             }
             return buildSnapshot(keys, jedis.mget(keys.toArray(new String[0])));
-        }).orElse(FleetSnapshot.empty());
+        });
     }
 
     private List<String> scanPresenceKeys(Jedis jedis) {

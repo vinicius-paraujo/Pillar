@@ -9,8 +9,10 @@ import br.com.markineo.pillar.logger.PillarLogger;
 import br.com.markineo.pillar.core.placement.ReservationRegistry;
 
 import java.time.Duration;
+import java.time.Instant;
 import java.util.Collection;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -23,19 +25,22 @@ public final class HealthRegistry implements AutoCloseable {
     private final PillarExecutors executors;
     private final PillarLogger logger;
     private final long intervalMillis;
+    private final Duration stalenessWindow;
     private final ReservationRegistry reservations;
 
     private volatile Map<ServerId, HealthSnapshot> cache = Map.of();
+    private volatile Instant lastGoodRead = Instant.EPOCH;
     private ScheduledExecutorService loop;
 
     public HealthRegistry(PresenceService presence, HealthView healthView,
                           PillarExecutors executors, PillarLogger logger,
-                          Duration interval, ReservationRegistry reservations) {
+                          Duration interval, Duration stalenessWindow, ReservationRegistry reservations) {
         this.presence = presence;
         this.healthView = healthView;
         this.executors = executors;
         this.logger = logger;
         this.intervalMillis = interval.toMillis();
+        this.stalenessWindow = stalenessWindow;
         this.reservations = reservations;
     }
 
@@ -66,10 +71,15 @@ public final class HealthRegistry implements AutoCloseable {
                 return;
             }
 
-            // HealthView.fetchAll catches JedisException and returns an empty map on failure.
-            // When that happens, this map will become empty, triggering the least-connections
-            // fallback behavior for the placement logic, which is the correct degraded state.
-            this.cache = Map.copyOf(healthView.fetchAll(activeIds));
+            Optional<Map<ServerId, HealthSnapshot>> result = healthView.fetchAll(activeIds);
+            if (result.isPresent()) {
+                this.cache = Map.copyOf(result.get());
+                lastGoodRead = Instant.now();
+            } else {
+                if (Instant.now().isAfter(lastGoodRead.plus(stalenessWindow))) {
+                    this.cache = Map.of();
+                }
+            }
 
             Set<ServerIdentity> aliveNodes = Set.copyOf(presence.cachedFleet().members());
             reservations.cleanUpDeadNodes(aliveNodes);

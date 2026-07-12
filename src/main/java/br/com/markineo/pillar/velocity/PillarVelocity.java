@@ -19,6 +19,7 @@ import br.com.markineo.pillar.redis.presence.HealthRegistry;
 import br.com.markineo.pillar.redis.presence.HealthService;
 import br.com.markineo.pillar.redis.presence.HealthView;
 import br.com.markineo.pillar.redis.presence.PresenceService;
+import br.com.markineo.pillar.redis.presence.FleetView;
 import br.com.markineo.pillar.redis.transport.InboxDiagnostics;
 import br.com.markineo.pillar.redis.transport.JsonEnvelopeCodec;
 import br.com.markineo.pillar.redis.transport.PingHandler;
@@ -98,21 +99,25 @@ public final class PillarVelocity {
 
         ServerId selfId = new ServerId(settings.name());
         ServerIdentity identity = new ServerIdentity(selfId, new ServerRole(settings.role()));
-        this.presence = new PresenceService(redis, identity, executors, logger);
-        presence.start();
 
         // Placement (Login Routing)
-        Duration reservationTtl = settings.healthInterval().multipliedBy(3).dividedBy(2); // 1.5x
-        ReservationRegistry reservations = new ReservationRegistry(Clock.systemUTC(), reservationTtl);
+        FleetView fleetView = new FleetView(redis);
+        HealthView healthView = new HealthView(redis, new Gson());
+        ReservationRegistry reservations = new ReservationRegistry(Clock.systemUTC(), Duration.ofSeconds(5));
 
-        Gson gson = new com.google.gson.GsonBuilder().disableHtmlEscaping().create();
-        HealthView healthView = new HealthView(redis, gson);
-        this.healthRegistry = new HealthRegistry(presence, healthView, executors, logger, settings.healthInterval(), reservations);
+        Duration interval = br.com.markineo.pillar.redis.presence.HeartbeatPublisher.INTERVAL;
+        Duration stalenessWindow = settings.redis().stalenessWindow();
+        
+        this.presence = new PresenceService(redis, identity, fleetView, executors, logger, interval, stalenessWindow);
+        presence.start();
+
+        this.healthRegistry = new HealthRegistry(presence, healthView, executors, logger, Duration.ofMillis(100), stalenessWindow, reservations);
         healthRegistry.start();
         EligibilityFilter eligibilityFilter = new EligibilityFilter(settings.hardCaps());
         PlacementSelector placementSelector = new PlacementSelector(reservations);
         PlacementService placement = new PlacementService(eligibilityFilter, placementSelector, reservations);
 
+        Gson gson = new com.google.gson.GsonBuilder().disableHtmlEscaping().create();
         JsonEnvelopeCodec codec = new JsonEnvelopeCodec(gson);
         this.timeoutScheduler = executors.newSingleThreadScheduled("correlation-timeout");
         this.correlations = new CorrelationRegistry(timeoutScheduler);
@@ -151,7 +156,7 @@ public final class PillarVelocity {
 
         // Login event listener
         server.getEventManager().register(this, new LoginListener(
-                server, placement, presence, healthRegistry, settings, lang, logger
+                server, placement, presence, healthRegistry, settings, lang, logger, redis
         ));
 
         logger.info("Pillar initialized as '" + settings.name() + "'.");

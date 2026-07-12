@@ -37,7 +37,7 @@ public abstract class RedisIntegrationTest {
         executors = new PillarExecutors(logger);
 
         RedisSettings settings = new RedisSettings(
-                REDIS.getHost(), REDIS.getMappedPort(REDIS_PORT), "", 16, Duration.ofMillis(2000));
+                REDIS.getHost(), REDIS.getMappedPort(REDIS_PORT), "", 16, Duration.ofMillis(2000), Duration.ofSeconds(30));
         connector = new RedisConnector(settings, executors, logger);
         connector.start();
         awaitReady();

@@ -40,7 +40,7 @@ class RedisPoolExhaustionIntegrationTest {
         PillarLogger logger = new PillarLogger(LoggerFactory.getLogger("pillar-pool-test"));
         PillarExecutors executors = new PillarExecutors(logger);
         RedisSettings settings = new RedisSettings(
-                REDIS.getHost(), REDIS.getMappedPort(REDIS_PORT), "", MAX_TOTAL, MAX_WAIT);
+                REDIS.getHost(), REDIS.getMappedPort(REDIS_PORT), "", MAX_TOTAL, MAX_WAIT, Duration.ofSeconds(30));
         connector = new RedisConnector(settings, executors, logger);
         connector.start();
     }

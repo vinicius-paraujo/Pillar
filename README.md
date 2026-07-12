@@ -119,7 +119,7 @@ decision logic so it stays testable in isolation.
 Pillar is organized so the decision logic never depends on the platform or the driver:
 
 ```
-com.markineo.pillar
+br.com.markineo.pillar
 ├── core        Pure Java: identity, fleet, task envelope, placement logic (no Jedis, no platform)
 ├── error       Unchecked exception hierarchy (PillarException)
 ├── logger      Logging over SLF4J with a diagnostics ring buffer
@@ -175,7 +175,7 @@ aborts startup with an actionable message instead of failing mysteriously later.
 ## Building from source
 
 Gradle + Shadow on a Java 25 toolchain. Jedis and SnakeYAML are bundled and relocated
-under `com.markineo.pillar.lib` so they can't clash with other plugins.
+under `br.com.markineo.pillar.lib` so they can't clash with other plugins.
 
 ```bash
 # Package the shaded plugin jar

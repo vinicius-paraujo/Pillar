@@ -37,9 +37,9 @@ public class HealthView {
         });
     }
 
-    public Map<ServerId, HealthSnapshot> fetchAll(Collection<ServerId> ids) {
+    public Optional<Map<ServerId, HealthSnapshot>> fetchAll(Collection<ServerId> ids) {
         if (ids.isEmpty()) {
-            return Map.of();
+            return Optional.of(Map.of());
         }
         return connector.withResource(jedis -> {
             ServerId[] idArray = ids.toArray(new ServerId[0]);
@@ -61,6 +61,6 @@ public class HealthView {
                 }
             }
             return result;
-        }).orElse(Map.of());
+        });
     }
 }

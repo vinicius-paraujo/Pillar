@@ -40,8 +40,8 @@ class HealthRegistryIntegrationTest extends RedisIntegrationTest {
         // Alpha node (mock game server) starts presence and health
         ServerId alphaId = new ServerId("alpha");
         ServerIdentity alphaIdentity = new ServerIdentity(alphaId, new ServerRole("hub"));
-
-        alphaPresence = new PresenceService(connector, alphaIdentity, executors, logger);
+        FleetView alphaFleetView = new FleetView(connector);
+        alphaPresence = new PresenceService(connector, alphaIdentity, alphaFleetView, executors, logger, Duration.ofMillis(100), Duration.ofSeconds(30));
         alphaPresence.start();
 
         HealthProvider stubProvider = () -> new HealthSnapshot(45.0, 1024L, 4096L, 10, 3, 0);
@@ -49,15 +49,14 @@ class HealthRegistryIntegrationTest extends RedisIntegrationTest {
         alphaHealth.start();
 
         // Proxy node starts its own PresenceService and HealthRegistry
-        ServerId proxyId = new ServerId("proxy-1");
-        ServerIdentity proxyIdentity = new ServerIdentity(proxyId, new ServerRole("proxy"));
-
-        PresenceService proxyPresence = new PresenceService(connector, proxyIdentity, executors, logger);
+        ServerIdentity proxyIdentity = new ServerIdentity(new ServerId("proxy-1"), new ServerRole("proxy"));
+        FleetView proxyFleetView = new FleetView(connector);
+        PresenceService proxyPresence = new PresenceService(connector, proxyIdentity, proxyFleetView, executors, logger, Duration.ofMillis(100), Duration.ofSeconds(30));
         proxyPresence.start();
 
         HealthView healthView = new HealthView(connector, gson);
         var reservations = new br.com.markineo.pillar.core.placement.ReservationRegistry(java.time.Clock.systemUTC(), Duration.ofSeconds(5));
-        proxyRegistry = new HealthRegistry(proxyPresence, healthView, executors, logger, Duration.ofMillis(100), reservations);
+        proxyRegistry = new HealthRegistry(proxyPresence, healthView, executors, logger, Duration.ofMillis(100), Duration.ofSeconds(30), reservations);
         proxyRegistry.start();
     }
 

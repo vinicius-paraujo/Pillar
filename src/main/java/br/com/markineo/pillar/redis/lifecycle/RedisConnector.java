@@ -15,7 +15,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 
-public final class RedisConnector implements AutoCloseable {
+public class RedisConnector implements AutoCloseable {
 
     private static final Duration HEALTH_INTERVAL = Duration.ofSeconds(5);
     private static final int SOCKET_TIMEOUT_MILLIS = 2000;
@@ -69,6 +69,10 @@ public final class RedisConnector implements AutoCloseable {
         return state.get();
     }
 
+    public RedisSettings settings() {
+        return settings;
+    }
+
     public boolean isReady() {
         return state.get() == ConnectionState.READY;
     }
@@ -116,7 +120,7 @@ public final class RedisConnector implements AutoCloseable {
         // Refuse to leave SHUT_DOWN: a probe racing a close() must not revive the connector.
         ConnectionState previous = state.getAndUpdate(this::readyUnlessShutDown);
         if (previous != ConnectionState.READY && previous != ConnectionState.SHUT_DOWN) {
-            logger.info("Redis connection ready (" + settings.host() + ":" + settings.port() + ").");
+            logger.info("Redis connection ready (" + settings.host() + ":" + settings.port() + "). Recovered from degraded state.");
         }
     }
 

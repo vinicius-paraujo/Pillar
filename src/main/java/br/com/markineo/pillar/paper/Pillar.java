@@ -19,6 +19,7 @@ import br.com.markineo.pillar.redis.presence.HealthService;
 import br.com.markineo.pillar.redis.transport.InboxDiagnostics;
 import br.com.markineo.pillar.redis.transport.JsonEnvelopeCodec;
 import br.com.markineo.pillar.redis.transport.PingHandler;
+import br.com.markineo.pillar.redis.presence.FleetView;
 import br.com.markineo.pillar.redis.presence.PresenceService;
 import br.com.markineo.pillar.redis.lifecycle.RedisConnector;
 import br.com.markineo.pillar.redis.transport.RequestSender;
@@ -67,7 +68,12 @@ public final class Pillar extends JavaPlugin {
 
         ServerId selfId = new ServerId(settings.name());
         ServerIdentity identity = new ServerIdentity(selfId, new ServerRole(settings.role()));
-        this.presence = new PresenceService(redis, identity, executors, logger);
+
+        FleetView fleetView = new FleetView(redis);
+        Duration interval = br.com.markineo.pillar.redis.presence.HeartbeatPublisher.INTERVAL;
+        Duration stalenessWindow = settings.redis().stalenessWindow();
+        
+        this.presence = new PresenceService(redis, identity, fleetView, executors, logger, interval, stalenessWindow);
         presence.start();
 
         Gson gson = new com.google.gson.GsonBuilder().disableHtmlEscaping().create();
