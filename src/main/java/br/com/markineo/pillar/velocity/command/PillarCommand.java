@@ -6,6 +6,7 @@ import br.com.markineo.pillar.config.Lang;
 import br.com.markineo.pillar.core.fleet.FleetSnapshot;
 import br.com.markineo.pillar.core.identity.ServerId;
 import br.com.markineo.pillar.core.identity.ServerIdentity;
+import br.com.markineo.pillar.core.identity.ServerRole;
 import br.com.markineo.pillar.error.TimeoutPillarException;
 import br.com.markineo.pillar.logger.PillarLogger;
 import br.com.markineo.pillar.redis.transport.InboxDiagnostics;
@@ -15,6 +16,8 @@ import br.com.markineo.pillar.redis.transport.RequestSender;
 import br.com.markineo.pillar.core.task.Envelope;
 import br.com.markineo.pillar.core.task.PillarMessageTypes;
 import java.time.Duration;
+import java.util.concurrent.CompletionException;
+
 import com.velocitypowered.api.command.CommandSource;
 import com.velocitypowered.api.command.SimpleCommand;
 import net.kyori.adventure.text.Component;
@@ -23,7 +26,6 @@ import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
 
 public final class PillarCommand implements SimpleCommand {
-
     private static final MiniMessage MINI = MiniMessage.miniMessage();
     private static final int RECENT_LOG_LIMIT = 8;
     private static final String ONLINE = "online";
@@ -78,10 +80,11 @@ public final class PillarCommand implements SimpleCommand {
             source.sendMessage(render("fleet.empty"));
             return;
         }
-        for (ServerIdentity node : fleet.members()) {
+
+        for (ServerIdentity member : fleet.members()) {
             source.sendMessage(render("fleet.entry",
-                    Placeholder.unparsed("name", node.id().value()),
-                    Placeholder.unparsed("role", node.role().value()),
+                    Placeholder.unparsed("name", member.id().value()),
+                    Placeholder.unparsed("role", member.role().value()),
                     Placeholder.unparsed("status", ONLINE)));
         }
     }
@@ -93,11 +96,13 @@ public final class PillarCommand implements SimpleCommand {
                 Placeholder.unparsed("count", Long.toString(diagnostics.pendingEntries(self)))));
 
         source.sendMessage(render("status.log_header"));
+
         var history = logger.history();
         if (history.isEmpty()) {
             source.sendMessage(render("status.log_empty"));
             return;
         }
+
         history.stream().skip(Math.max(0, history.size() - RECENT_LOG_LIMIT)).forEach(entry ->
                 source.sendMessage(render("status.log_entry",
                         Placeholder.unparsed("level", entry.level().name()),
@@ -126,21 +131,23 @@ public final class PillarCommand implements SimpleCommand {
 
         requestSender.send(target, ping, Duration.ofSeconds(5)).whenComplete((pong, error) -> {
             scheduler.runSync(() -> {
-                if (error != null) {
-                    Throwable root = error instanceof java.util.concurrent.CompletionException ? error.getCause() : error;
-                    if (root instanceof TimeoutPillarException) {
-                        source.sendMessage(render("ping.timeout", Placeholder.unparsed("server", target.value())));
-                    } else {
-                        source.sendMessage(render("ping.failed", 
-                                Placeholder.unparsed("server", target.value()),
-                                Placeholder.unparsed("message", error.getMessage() != null ? error.getMessage() : "unknown error")));
-                    }
-                } else {
+                if (error == null) {
                     long latency = System.currentTimeMillis() - start;
                     source.sendMessage(render("ping.success",
                             Placeholder.unparsed("server", target.value()),
                             Placeholder.unparsed("latency", String.valueOf(latency))));
+                    return;
                 }
+
+                Throwable root = error instanceof CompletionException ? error.getCause() : error;
+                if (root instanceof TimeoutPillarException) {
+                    source.sendMessage(render("ping.timeout", Placeholder.unparsed("server", target.value())));
+                } else {
+                    source.sendMessage(render("ping.failed",
+                            Placeholder.unparsed("server", target.value()),
+                            Placeholder.unparsed("message", error.getMessage() != null ? error.getMessage() : "unknown error")));
+                }
+
             });
         });
     }

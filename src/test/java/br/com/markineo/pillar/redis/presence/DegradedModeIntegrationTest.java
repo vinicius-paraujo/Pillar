@@ -59,7 +59,7 @@ class DegradedModeIntegrationTest {
         executors = new PillarExecutors(logger);
 
         RedisSettings settings = new RedisSettings(
-                REDIS.getHost(), REDIS.getMappedPort(REDIS_PORT), "", 16, Duration.ofMillis(500), STALENESS_WINDOW);
+                REDIS.getHost(), REDIS.getMappedPort(REDIS_PORT), "", 16, Duration.ofMillis(500), STALENESS_WINDOW, 30000L);
         connector = new RedisConnector(settings, executors, logger);
         connector.start();
         awaitReady();

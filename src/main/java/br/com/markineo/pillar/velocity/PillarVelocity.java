@@ -147,7 +147,7 @@ public final class PillarVelocity {
         this.health = new HealthService(redis, selfId, healthProvider, gson, executors, logger, settings.healthInterval());
         health.start();
 
-        this.inboxReaper = new br.com.markineo.pillar.redis.transport.InboxReaper(redis, presence, executors, logger);
+        this.inboxReaper = new br.com.markineo.pillar.redis.transport.InboxReaper(redis, presence, executors, logger, settings.redis().reaperInterval());
         inboxReaper.start();
 
         RequestSender requestSender = new RequestSender(publisher, correlations);

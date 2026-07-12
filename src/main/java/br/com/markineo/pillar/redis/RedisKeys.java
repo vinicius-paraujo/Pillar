@@ -28,6 +28,15 @@ public final class RedisKeys {
         return INBOX_PREFIX + id.value();
     }
 
+    public static String inboxPattern() {
+        return INBOX_PREFIX + "*";
+    }
+
+    public static ServerId parseInboxId(String key) {
+        if (!key.startsWith(INBOX_PREFIX)) return null;
+        return new ServerId(key.substring(INBOX_PREFIX.length()));
+    }
+
     public static String attempts(ServerId id) {
         return "pillar:attempts:" + id.value();
     }

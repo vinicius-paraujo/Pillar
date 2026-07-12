@@ -28,56 +28,68 @@ public class InboxReaper implements AutoCloseable {
     private final PresenceService presence;
     private final PillarExecutors executors;
     private final PillarLogger logger;
+    private final long intervalMillis;
+    
+    private final java.util.Set<ServerId> orphanCandidates = java.util.concurrent.ConcurrentHashMap.newKeySet();
 
     private ScheduledExecutorService scheduler;
 
     public InboxReaper(RedisConnector connector, PresenceService presence, 
-                       PillarExecutors executors, PillarLogger logger) {
+                       PillarExecutors executors, PillarLogger logger, long intervalMillis) {
         this.connector = connector;
         this.presence = presence;
         this.executors = executors;
         this.logger = logger;
+        this.intervalMillis = intervalMillis;
     }
 
     public void start() {
         this.scheduler = executors.newSingleThreadScheduled("inbox-reaper");
-        scheduler.scheduleWithFixedDelay(this::reap, 30, 30, TimeUnit.SECONDS);
+        scheduler.scheduleWithFixedDelay(this::reap, intervalMillis, intervalMillis, TimeUnit.MILLISECONDS);
     }
 
     private void reap() {
         connector.withResource(jedis -> {
             String cursor = ScanParams.SCAN_POINTER_START;
-            ScanParams params = new ScanParams().match("pillar:inbox:*").count(100);
+            ScanParams params = new ScanParams().match(RedisKeys.inboxPattern()).count(100);
+
+            java.util.Set<ServerId> foundThisCycle = new java.util.HashSet<>();
 
             do {
                 ScanResult<String> result = jedis.scan(cursor, params);
                 List<String> keys = result.getResult();
                 for (String key : keys) {
-                    processInboxKey(jedis, key);
+                    ServerId id = RedisKeys.parseInboxId(key);
+                    if (id != null) {
+                        foundThisCycle.add(id);
+                        processInbox(jedis, key, id);
+                    }
                 }
                 cursor = result.getCursor();
             } while (!cursor.equals(ScanParams.SCAN_POINTER_START));
+
+            // Clean up candidates that no longer have inboxes (perhaps they were deleted or node recovered and deleted its own)
+            orphanCandidates.removeIf(id -> !foundThisCycle.contains(id));
 
             return null;
         });
     }
 
-    private void processInboxKey(Jedis jedis, String inboxKey) {
-        // inboxKey format: pillar:inbox:<id>
-        String prefix = "pillar:inbox:";
-        if (!inboxKey.startsWith(prefix)) {
-            return;
-        }
-
-        String idStr = inboxKey.substring(prefix.length());
-        ServerId id = new ServerId(idStr);
-
+    private void processInbox(Jedis jedis, String inboxKey, ServerId id) {
         // 1. Check memory-level gate (cachedFleet)
         if (presence.cachedFleet().contains(id)) {
+            orphanCandidates.remove(id); // Healed
             return; // Node is alive in the cached fleet
         }
 
-        // 2. Atomic check-and-delete via Lua
+        // 2. Idle Gate: wait for one full cycle before deleting
+        if (!orphanCandidates.contains(id)) {
+            // First time seen absent. Add to candidates and wait for next cycle.
+            orphanCandidates.add(id);
+            return;
+        }
+
+        // 3. Atomic check-and-delete via Lua
         String presenceKey = RedisKeys.presence(id);
         String attemptsKey = RedisKeys.attempts(id);
 
@@ -85,8 +97,9 @@ public class InboxReaper implements AutoCloseable {
             Object result = jedis.eval(LUA_SCRIPT, 3, presenceKey, inboxKey, attemptsKey);
             if (result instanceof Long && ((Long) result) == 1L) {
                 logger.info("Reaped abandoned inbox and attempts for dead node: " + id.value());
+                orphanCandidates.remove(id);
             }
-        } catch (Exception e) {
+        } catch (redis.clients.jedis.exceptions.JedisException e) {
             logger.error("Failed to execute Lua script for reaping inbox " + inboxKey, e);
         }
     }

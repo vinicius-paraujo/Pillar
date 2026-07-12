@@ -40,7 +40,7 @@ class PresenceServiceTest {
 
         ServerIdentity identity = new ServerIdentity(new ServerId("proxy-1"), new ServerRole("proxy"));
         
-        RedisSettings settings = new RedisSettings("localhost", 6379, "", 1, Duration.ofMillis(100), STALENESS_WINDOW);
+        RedisSettings settings = new RedisSettings("localhost", 6379, "", 1, Duration.ofMillis(100), STALENESS_WINDOW, 30000L);
         RedisConnector fakeConnector = new RedisConnector(settings, executors, logger) {
             @Override
             public boolean isReady() {

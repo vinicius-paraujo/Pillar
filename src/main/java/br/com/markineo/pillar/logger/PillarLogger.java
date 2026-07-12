@@ -8,10 +8,18 @@ import java.util.Deque;
 import java.util.List;
 
 public final class PillarLogger {
+    public enum Level {
+        DEBUG,
+        INFO,
+        WARN,
+        ERROR
+    }
 
-    public enum Level { DEBUG, INFO, WARN, ERROR }
-
-    public record Entry(Instant time, Level level, String message) {}
+    public record Entry(
+            Instant time,
+            Level level,
+            String message
+    ) {}
 
     private static final int HISTORY_LIMIT = 100;
 

@@ -51,7 +51,7 @@ class InboxReaperIntegrationTest extends RedisIntegrationTest {
             }
         };
 
-        reaper = new InboxReaper(connector, stubPresence, executors, logger);
+        reaper = new InboxReaper(connector, stubPresence, executors, logger, 30000);
         // We won't start() the reaper to avoid unpredictable scheduler timing. We'll invoke reap() manually.
     }
 
@@ -66,9 +66,9 @@ class InboxReaperIntegrationTest extends RedisIntegrationTest {
     }
 
     @Test
-    void reapDeletesAbandonedInboxAndAttempts() {
+    void reapDeletesAbandonedInboxAndAttemptsAfterGracePeriod() {
         ServerId deadId = new ServerId("dead-1");
-        String inboxKey = "pillar:inbox:" + deadId.value();
+        String inboxKey = RedisKeys.inbox(deadId);
         String attemptsKey = RedisKeys.attempts(deadId);
 
         // 1. Setup abandoned keys in Redis
@@ -82,18 +82,23 @@ class InboxReaperIntegrationTest extends RedisIntegrationTest {
         assertTrue(keyExists(inboxKey), "Inbox should exist before reap");
         assertTrue(keyExists(attemptsKey), "Attempts should exist before reap");
 
-        // 2. Invoke reap (presence key is absent by default in test, fleet is empty)
+        // 2. Invoke reap 1st time (adds to orphanCandidates)
+        invokeReap();
+        
+        assertTrue(keyExists(inboxKey), "Inbox should NOT be deleted on first cycle (grace period)");
+
+        // 3. Invoke reap 2nd time (deletes)
         invokeReap();
 
-        // 3. Verify deletion
-        assertFalse(keyExists(inboxKey), "Inbox should be deleted after reap");
-        assertFalse(keyExists(attemptsKey), "Attempts should be deleted after reap");
+        // 4. Verify deletion
+        assertFalse(keyExists(inboxKey), "Inbox should be deleted after grace period");
+        assertFalse(keyExists(attemptsKey), "Attempts should be deleted after grace period");
     }
 
     @Test
     void reapAbortsIfNodeInCachedFleet() {
         ServerId aliveId = new ServerId("alive-1");
-        String inboxKey = "pillar:inbox:" + aliveId.value();
+        String inboxKey = RedisKeys.inbox(aliveId);
         String attemptsKey = RedisKeys.attempts(aliveId);
 
         connector.withResource(jedis -> {
@@ -108,6 +113,7 @@ class InboxReaperIntegrationTest extends RedisIntegrationTest {
         )));
 
         invokeReap();
+        invokeReap(); // Even after two cycles, it shouldn't delete
 
         // Should NOT delete
         assertTrue(keyExists(inboxKey), "Inbox should NOT be deleted if node is in fleet");
@@ -117,7 +123,7 @@ class InboxReaperIntegrationTest extends RedisIntegrationTest {
     @Test
     void reapAbortsIfPresenceKeyExists() {
         ServerId recoveringId = new ServerId("recovering-1");
-        String inboxKey = "pillar:inbox:" + recoveringId.value();
+        String inboxKey = RedisKeys.inbox(recoveringId);
         String attemptsKey = RedisKeys.attempts(recoveringId);
         String presenceKey = RedisKeys.presence(recoveringId);
 
@@ -129,6 +135,7 @@ class InboxReaperIntegrationTest extends RedisIntegrationTest {
         });
 
         invokeReap();
+        invokeReap(); // Even after two cycles, it shouldn't delete
 
         // Should NOT delete (atomic lua script should have returned 0)
         assertTrue(keyExists(inboxKey), "Inbox should NOT be deleted if presence key exists");
