@@ -27,6 +27,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.List;
 import java.util.stream.Stream;
 
+import com.google.gson.Gson;
 import com.velocitypowered.api.command.CommandSource;
 import com.velocitypowered.api.command.SimpleCommand;
 import net.kyori.adventure.text.Component;
@@ -36,6 +37,7 @@ import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
 
 public final class PillarCommand implements SimpleCommand {
     private static final MiniMessage MINI = MiniMessage.miniMessage();
+    private static final Gson GSON = new Gson();
     private static final int RECENT_LOG_LIMIT = 8;
     private static final String ONLINE = "online";
 
@@ -244,7 +246,6 @@ public final class PillarCommand implements SimpleCommand {
 
         AtomicInteger successes = new AtomicInteger();
         AtomicInteger failures = new AtomicInteger();
-        com.google.gson.Gson localGson = new com.google.gson.Gson();
 
         CompletableFuture<?>[] futures = targets.stream()
             .map(target -> {
@@ -252,7 +253,7 @@ public final class PillarCommand implements SimpleCommand {
                 return requestSender.send(target.id(), req, Duration.ofSeconds(5)).handle((reply, error) -> {
                     scheduler.runSync(() -> {
                         if (error == null) {
-                            ReloadAck ack = localGson.fromJson(reply.payload(), ReloadAck.class);
+                            ReloadAck ack = GSON.fromJson(reply.payload(), ReloadAck.class);
                             if (ack != null && !ack.ok()) {
                                 failures.incrementAndGet();
                                 source.sendMessage(render("reload.failed", 
@@ -294,11 +295,11 @@ public final class PillarCommand implements SimpleCommand {
     }
 
     @Override
-    public java.util.List<String> suggest(Invocation invocation) {
+    public List<String> suggest(Invocation invocation) {
         String[] args = invocation.arguments();
         if (args.length == 0 || args.length == 1) {
             String prefix = args.length == 0 ? "" : args[0].toLowerCase();
-            return java.util.stream.Stream.of("fleet", "status", "doctor", "ping", "reload")
+            return Stream.of("fleet", "status", "doctor", "ping", "reload")
                     .filter(s -> s.startsWith(prefix))
                     .toList();
         } else if (args.length == 2 && args[0].equalsIgnoreCase("ping")) {
@@ -307,6 +308,6 @@ public final class PillarCommand implements SimpleCommand {
                     .filter(s -> s.toLowerCase().startsWith(args[1].toLowerCase()))
                     .toList();
         }
-        return java.util.List.of();
+        return List.of();
     }
 }

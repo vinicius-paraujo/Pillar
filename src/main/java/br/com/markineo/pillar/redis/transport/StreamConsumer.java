@@ -37,6 +37,10 @@ public final class StreamConsumer implements AutoCloseable, SignalTracker {
     private static final int MAX_ATTEMPTS = 3;
     private static final int PROCESSING_LOCK_SECONDS = 30;
 
+    private enum DedupState {
+        PROCESSING, DONE
+    }
+
     private final RedisConnector connector;
     private final EnvelopeCodec codec;
     private final ServerId self;
@@ -170,15 +174,8 @@ public final class StreamConsumer implements AutoCloseable, SignalTracker {
 
         while (running && connector.isReady()) {
             List<StreamEntry> pending;
-            try (Jedis jedis = connector.getResource()) {
-                XReadGroupParams readParams = XReadGroupParams.xReadGroupParams().count(MAX_ENTRIES_PER_READ);
-                List<Map.Entry<String, List<StreamEntry>>> streams = jedis.xreadGroup(
-                        StreamProtocol.CONSUMER_GROUP,
-                        self.value(),
-                        readParams,
-                        Map.of(inbox, lastId));
-
-                pending = entriesFrom(streams);
+            try {
+                pending = readPendingBatch(lastId);
             } catch (JedisException e) {
                 logger.warn("Failed to drain PEL: " + e.getMessage());
                 break;
@@ -199,6 +196,19 @@ public final class StreamConsumer implements AutoCloseable, SignalTracker {
         }
     }
 
+    private List<StreamEntry> readPendingBatch(StreamEntryID lastId) {
+        try (Jedis jedis = connector.getResource()) {
+            XReadGroupParams readParams = XReadGroupParams.xReadGroupParams().count(MAX_ENTRIES_PER_READ);
+            List<Map.Entry<String, List<StreamEntry>>> streams = jedis.xreadGroup(
+                    StreamProtocol.CONSUMER_GROUP,
+                    self.value(),
+                    readParams,
+                    Map.of(inbox, lastId));
+
+            return entriesFrom(streams);
+        }
+    }
+
     private void processBatch(List<StreamEntry> entries) {
         for (StreamEntry entry : entries) {
             Envelope envelope = decodeSafe(entry);
@@ -213,13 +223,13 @@ public final class StreamConsumer implements AutoCloseable, SignalTracker {
             return decodeEntry(entry);
         } catch (PillarException poison) {
             logger.warn("Discarding undecodable inbox entry " + entry.getID() + ": " + poison.getMessage());
-            dispatchPool.execute(() -> {
-                try (Jedis jedis = connector.getResource()) {
-                    acknowledgeAndClean(jedis, entry.getID());
-                } catch (JedisException e) {
-                    logger.warn("Failed to clean poison entry " + entry.getID() + ": " + e.getMessage());
-                }
-            });
+            // Acked inline: this thread already blocks on Redis by design, and poison
+            // entries are rare — offloading a single XACK buys nothing.
+            try (Jedis jedis = connector.getResource()) {
+                acknowledgeAndClean(jedis, entry.getID());
+            } catch (JedisException e) {
+                logger.warn("Failed to clean poison entry " + entry.getID() + ": " + e.getMessage());
+            }
             return null;
         }
     }
@@ -260,13 +270,13 @@ public final class StreamConsumer implements AutoCloseable, SignalTracker {
 
     private boolean acquireProcessingLock(Jedis jedis, StreamEntry entry) {
         String dedupKey = RedisKeys.dedup(self, entry.getID().toString());
-        String lock = jedis.set(dedupKey, "PROCESSING", SetParams.setParams().nx().ex(PROCESSING_LOCK_SECONDS));
+        String lock = jedis.set(dedupKey, DedupState.PROCESSING.name(), SetParams.setParams().nx().ex(PROCESSING_LOCK_SECONDS));
         if ("OK".equals(lock)) {
             return true;
         }
 
         String state = jedis.get(dedupKey);
-        if ("DONE".equals(state)) {
+        if (DedupState.DONE.name().equals(state)) {
             logger.info("Skipping already processed inbox entry " + entry.getID());
             acknowledgeAndClean(jedis, entry.getID());
         } else {
@@ -280,7 +290,7 @@ public final class StreamConsumer implements AutoCloseable, SignalTracker {
         try {
             sink.accept(envelope);
             try (Pipeline pipeline = jedis.pipelined()) {
-                pipeline.setex(dedupKey, dedupWindow.toSeconds(), "DONE");
+                pipeline.setex(dedupKey, dedupWindow.toSeconds(), DedupState.DONE.name());
                 acknowledgeAndClean(pipeline, entry.getID());
                 pipeline.sync();
             }

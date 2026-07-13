@@ -28,6 +28,12 @@ public final class PillarExecutors {
         return Executors.newFixedThreadPool(size, threadFactory(name));
     }
 
+    /**
+     * A bounded pool whose rejection handler blocks the submitting thread until the queue
+     * drains, applying backpressure instead of dropping tasks. Because a full queue stalls
+     * the caller, only Pillar-owned worker threads may submit here — never the Paper main
+     * thread or Velocity event loop, which this would freeze.
+     */
     public ThreadPoolExecutor newBoundedWorkerPool(String name, int poolSize, int queueCapacity) {
         return new ThreadPoolExecutor(
                 poolSize, poolSize,

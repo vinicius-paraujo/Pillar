@@ -6,7 +6,6 @@ import br.com.markineo.pillar.core.lease.OwnerToken;
 import br.com.markineo.pillar.core.lease.ResourceKey;
 import br.com.markineo.pillar.redis.RedisKeys;
 import br.com.markineo.pillar.redis.lifecycle.RedisConnector;
-import br.com.markineo.pillar.redis.lifecycle.ScriptExecutor;
 import redis.clients.jedis.params.SetParams;
 import java.util.List;
 
@@ -15,21 +14,21 @@ import java.util.Optional;
 
 public class RedisLeaseService implements LeaseService {
 
-    private static final ScriptExecutor SCRIPT_RENEW = new ScriptExecutor(
+    // Plain EVAL, not EVALSHA: these scripts are ~100 bytes and lease operations are
+    // infrequent, so SHA caching would add machinery for no measurable saving.
+    private static final String SCRIPT_RENEW =
             "if redis.call('get', KEYS[1]) == ARGV[1] then " +
             "    return redis.call('pexpire', KEYS[1], ARGV[2]) " +
             "else " +
             "    return 0 " +
-            "end"
-    );
+            "end";
 
-    private static final ScriptExecutor SCRIPT_RELEASE = new ScriptExecutor(
+    private static final String SCRIPT_RELEASE =
             "if redis.call('get', KEYS[1]) == ARGV[1] then " +
             "    return redis.call('del', KEYS[1]) " +
             "else " +
             "    return 0 " +
-            "end"
-    );
+            "end";
 
     private final RedisConnector redis;
 
@@ -53,20 +52,20 @@ public class RedisLeaseService implements LeaseService {
     @Override
     public boolean renew(Lease lease, Duration newTtl) {
         String key = RedisKeys.lease(lease.resource());
-        Optional<Long> result = SCRIPT_RENEW.eval(redis, 
-                List.of(key), 
-                List.of(lease.owner().value(), String.valueOf(newTtl.toMillis()))
-        );
-        return result.orElse(0L) == 1L;
+        Optional<Object> result = redis.withResource(jedis ->
+                jedis.eval(SCRIPT_RENEW,
+                        List.of(key),
+                        List.of(lease.owner().value(), String.valueOf(newTtl.toMillis()))));
+        return result.map(Long.valueOf(1L)::equals).orElse(false);
     }
 
     @Override
     public boolean release(Lease lease) {
         String key = RedisKeys.lease(lease.resource());
-        Optional<Long> result = SCRIPT_RELEASE.eval(redis, 
-                List.of(key), 
-                List.of(lease.owner().value())
-        );
-        return result.orElse(0L) == 1L;
+        Optional<Object> result = redis.withResource(jedis ->
+                jedis.eval(SCRIPT_RELEASE,
+                        List.of(key),
+                        List.of(lease.owner().value())));
+        return result.map(Long.valueOf(1L)::equals).orElse(false);
     }
 }

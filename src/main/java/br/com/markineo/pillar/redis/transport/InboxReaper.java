@@ -7,10 +7,9 @@ import br.com.markineo.pillar.redis.lifecycle.RedisConnector;
 import br.com.markineo.pillar.redis.presence.PresenceService;
 import br.com.markineo.pillar.redis.RedisKeys;
 import redis.clients.jedis.Jedis;
-import redis.clients.jedis.params.ScanParams;
-import redis.clients.jedis.resps.ScanResult;
 
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledExecutorService;
@@ -20,7 +19,9 @@ import java.util.function.BiConsumer;
 
 public class InboxReaper implements AutoCloseable {
 
-    private static final String LUA_SCRIPT = 
+    // Plain EVAL, not EVALSHA: the script is tiny and runs once per reap cycle, so SHA
+    // caching would add machinery for no measurable saving.
+    private static final String SCRIPT_REAP =
             "if redis.call('EXISTS', KEYS[1]) == 0 then\n" +
             "    redis.call('DEL', KEYS[2], KEYS[3])\n" +
             "    return 1\n" +
@@ -72,24 +73,13 @@ public class InboxReaper implements AutoCloseable {
     }
 
     private void scanInboxes(Jedis jedis, BiConsumer<String, ServerId> consumer) {
-        String cursor = ScanParams.SCAN_POINTER_START;
-        ScanParams params = new ScanParams()
-                .match(RedisKeys.inboxPattern())
-                .count(100);
-
-        do {
-            ScanResult<String> result = jedis.scan(cursor, params);
-
-            for (String key : result.getResult()) {
-                ServerId id = RedisKeys.parseInboxId(key);
-
-                if (id != null) {
-                    consumer.accept(key, id);
-                }
+        List<String> keys = RedisConnector.scanKeys(jedis, RedisKeys.inboxPattern(), 100);
+        for (String key : keys) {
+            ServerId id = RedisKeys.parseInboxId(key);
+            if (id != null) {
+                consumer.accept(key, id);
             }
-
-            cursor = result.getCursor();
-        } while (!ScanParams.SCAN_POINTER_START.equals(cursor));
+        }
     }
 
     private void discardMissingCandidates(Set<ServerId> discovered) {
@@ -110,11 +100,10 @@ public class InboxReaper implements AutoCloseable {
     private void tryReapInbox(Jedis jedis, String inboxKey, ServerId id) {
         try {
             Object result = jedis.eval(
-                    LUA_SCRIPT,
-                    3,
-                    RedisKeys.presence(id),
-                    inboxKey,
-                    RedisKeys.attempts(id));
+                    SCRIPT_REAP,
+                    List.of(RedisKeys.presence(id), inboxKey, RedisKeys.attempts(id)),
+                    List.of()
+            );
 
             if (Long.valueOf(1).equals(result)) {
                 logger.info("Reaped abandoned inbox and attempts for dead node: " + id.value());

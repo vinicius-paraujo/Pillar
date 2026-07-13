@@ -7,10 +7,14 @@ import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
 import redis.clients.jedis.JedisPoolConfig;
 import redis.clients.jedis.exceptions.JedisException;
+import redis.clients.jedis.params.ScanParams;
+import redis.clients.jedis.resps.ScanResult;
 
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Optional;
+import java.util.List;
+import java.util.ArrayList;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -97,6 +101,20 @@ public class RedisConnector implements AutoCloseable {
         } catch (JedisException e) {
             return Optional.empty();
         }
+    }
+
+    public static List<String> scanKeys(Jedis jedis, String pattern, int count) {
+        ScanParams params = new ScanParams().match(pattern).count(count);
+        List<String> keys = new ArrayList<>();
+        String cursor = ScanParams.SCAN_POINTER_START;
+
+        do {
+            ScanResult<String> result = jedis.scan(cursor, params);
+            keys.addAll(result.getResult());
+            cursor = result.getCursor();
+        } while (!ScanParams.SCAN_POINTER_START.equals(cursor));
+
+        return keys;
     }
 
     @Override

@@ -7,15 +7,13 @@ import br.com.markineo.pillar.core.identity.ServerIdentity;
 import br.com.markineo.pillar.core.identity.ServerRole;
 import redis.clients.jedis.Jedis;
 
-import redis.clients.jedis.params.ScanParams;
-import redis.clients.jedis.resps.ScanResult;
+
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
 public class FleetView {
-    private static final String INITIAL_SCAN_CURSOR = ScanParams.SCAN_POINTER_START;
     private static final int SCAN_BATCH_SIZE = 100;
 
     private final RedisConnector connector;
@@ -35,27 +33,7 @@ public class FleetView {
     }
 
     private List<String> scanPresenceKeys(Jedis jedis) {
-        ScanParams scanParams = new ScanParams()
-                .match(RedisKeys.presencePattern())
-                .count(SCAN_BATCH_SIZE);
-
-        List<String> presenceKeys = new ArrayList<>();
-        String cursor = INITIAL_SCAN_CURSOR;
-
-        while (true) {
-            ScanResult<String> scan = jedis.scan(cursor, scanParams);
-
-            presenceKeys.addAll(scan.getResult());
-
-            cursor = scan.getCursor();
-            if (isScanComplete(cursor)) {
-                return presenceKeys;
-            }
-        }
-    }
-
-    private boolean isScanComplete(String cursor) {
-        return INITIAL_SCAN_CURSOR.equals(cursor);
+        return RedisConnector.scanKeys(jedis, RedisKeys.presencePattern(), SCAN_BATCH_SIZE);
     }
 
     private FleetSnapshot buildSnapshot(List<String> keys, List<String> roles) {

@@ -4,79 +4,62 @@ import br.com.markineo.pillar.core.identity.ServerIdentity;
 
 import java.time.Clock;
 import java.time.Duration;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.ArrayDeque;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
 
+// A single lock over a plain map: reservation traffic (logins + programmatic routes)
+// is far below the contention level that would justify per-node locking.
 public final class ReservationRegistry {
+
+    private static final Duration IDLE_EVICTION = Duration.ofMinutes(2);
 
     private final Clock clock;
     private final Duration ttl;
-    private final ConcurrentHashMap<ServerIdentity, NodeReservations> reservations;
+    private final Map<ServerIdentity, NodeReservations> reservations = new HashMap<>();
 
     public ReservationRegistry(Clock clock, Duration ttl) {
         this.clock = clock;
         this.ttl = ttl;
-        this.reservations = new ConcurrentHashMap<>();
     }
 
-    public void reserve(ServerIdentity node) {
+    public synchronized void reserve(ServerIdentity node) {
         long now = clock.millis();
-        NodeReservations nodeReservations = reservations.computeIfAbsent(node, k -> new NodeReservations(now));
-        nodeReservations.markAccessed(now);
-        nodeReservations.add(now + ttl.toMillis());
+        NodeReservations nodeReservations =
+                reservations.computeIfAbsent(node, k -> new NodeReservations());
+        nodeReservations.lastAccessTime = now;
+        nodeReservations.expiries.addLast(now + ttl.toMillis());
     }
 
-    public int activeReservations(ServerIdentity node) {
+    public synchronized int activeReservations(ServerIdentity node) {
         NodeReservations nodeReservations = reservations.get(node);
-        if (nodeReservations == null || nodeReservations.isEmpty()) {
+        if (nodeReservations == null) {
             return 0;
         }
 
         long now = clock.millis();
-        nodeReservations.markAccessed(now);
+        nodeReservations.lastAccessTime = now;
         nodeReservations.evictExpired(now);
 
-        return nodeReservations.size();
+        return nodeReservations.expiries.size();
     }
 
-    public void cleanUpDeadNodes(java.util.Set<ServerIdentity> aliveNodes) {
-        long expireThreshold = clock.millis() - Duration.ofMinutes(2).toMillis();
-        reservations.entrySet().removeIf(entry -> 
-                !aliveNodes.contains(entry.getKey()) || entry.getValue().getLastAccessTime() < expireThreshold
+    public synchronized void cleanUpDeadNodes(Set<ServerIdentity> aliveNodes) {
+        long idleThreshold = clock.millis() - IDLE_EVICTION.toMillis();
+        reservations.entrySet().removeIf(entry ->
+                !aliveNodes.contains(entry.getKey()) || entry.getValue().lastAccessTime < idleThreshold
         );
     }
 
     private static final class NodeReservations {
-        private final java.util.ArrayDeque<Long> queue = new java.util.ArrayDeque<>();
-        private volatile long lastAccessTime;
+        private final ArrayDeque<Long> expiries = new ArrayDeque<>();
+        private long lastAccessTime;
 
-        NodeReservations(long now) {
-            this.lastAccessTime = now;
-        }
-
-        void markAccessed(long now) {
-            this.lastAccessTime = now;
-        }
-
-        long getLastAccessTime() {
-            return lastAccessTime;
-        }
-
-        synchronized void add(long expirationTimestamp) {
-            queue.offer(expirationTimestamp);
-        }
-
-        synchronized void evictExpired(long now) {
-            while (!queue.isEmpty() && queue.peek() != null && queue.peek() <= now) {
-                queue.poll();
+        private void evictExpired(long now) {
+            while (!expiries.isEmpty() && expiries.peekFirst() <= now) {
+                expiries.pollFirst();
             }
-        }
-
-        synchronized boolean isEmpty() {
-            return queue.isEmpty();
-        }
-
-        synchronized int size() {
-            return queue.size();
         }
     }
 }
