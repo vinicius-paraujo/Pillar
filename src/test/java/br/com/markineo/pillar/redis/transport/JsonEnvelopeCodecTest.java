@@ -55,7 +55,7 @@ class JsonEnvelopeCodecTest {
     void rejectsAFutureVersion() {
         String futureVersion = codec.encode(Envelope.oneWay(new MessageType("pillar.ping"),
                 new ServerId("skyblock-1"), codec.encodePayload(new Ping("x"))))
-                .replaceFirst("\"v\":2", "\"v\":999");
+                .replaceFirst("\"v\":1", "\"v\":999");
 
         assertThrows(PillarException.class, () -> codec.decode(futureVersion));
     }

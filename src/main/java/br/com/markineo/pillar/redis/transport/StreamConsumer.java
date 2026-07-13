@@ -27,10 +27,10 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
 public final class StreamConsumer implements AutoCloseable, SignalTracker {
-
     private static final int BLOCK_MILLIS = 2000;
     private static final int MAX_ENTRIES_PER_READ = 32;
     private static final long BACKOFF_MILLIS = 1000;
@@ -52,10 +52,19 @@ public final class StreamConsumer implements AutoCloseable, SignalTracker {
     private ExecutorService worker;
     private ScheduledExecutorService pelDrainer;
     private ThreadPoolExecutor dispatchPool;
+    private final AtomicLong deadLetterCount = new AtomicLong(0);
 
-    public StreamConsumer(RedisConnector connector, EnvelopeCodec codec, ServerId self,
-                          PillarExecutors executors, PillarLogger logger, Consumer<Envelope> sink,
-                          Duration dedupWindow, int poolSize, int queueCapacity) {
+    public StreamConsumer(
+            RedisConnector connector,
+            EnvelopeCodec codec,
+            ServerId self,
+            PillarExecutors executors,
+            PillarLogger logger,
+            Consumer<Envelope> sink,
+            Duration dedupWindow,
+            int poolSize,
+            int queueCapacity
+    ) {
         this.connector = connector;
         this.codec = codec;
         this.self = self;
@@ -77,15 +86,21 @@ public final class StreamConsumer implements AutoCloseable, SignalTracker {
         pelDrainer.scheduleWithFixedDelay(this::drainPendingEntries, 30, 30, TimeUnit.SECONDS);
     }
 
+    public long deadLetterCount() {
+        return deadLetterCount.get();
+    }
+
     @Override
     public void close() {
         this.running = false;
         if (dispatchPool != null) {
             dispatchPool.shutdownNow();
         }
+
         if (worker != null) {
             worker.shutdownNow();
         }
+
         if (pelDrainer != null) {
             pelDrainer.shutdownNow();
         }
@@ -97,31 +112,41 @@ public final class StreamConsumer implements AutoCloseable, SignalTracker {
 
     private void runLoop() {
         boolean groupEnsured = false;
-        while (running) {
-            if (!connector.isReady()) {
-                groupEnsured = false;
-                if (interruptedDuringBackoff()) {
-                    return;
-                }
 
-                continue;
+        while (running) {
+            if (!waitUntilReady()) {
+                return;
             }
+
             try {
                 if (!groupEnsured) {
-                    ensureConsumerGroup();
+                    initializeConsumer();
                     groupEnsured = true;
-                    drainPendingEntries();
                 }
+
                 processBatch(readBatch());
             } catch (JedisException e) {
-                // Transient Redis fault; the connector's health loop owns the state
-                // transition and logs it once. Re-ensure the group on recovery and back off.
+                // Transient Redis failure; the connector's health monitoring loop manages the state transition and logs the event once.
                 groupEnsured = false;
+
                 if (interruptedDuringBackoff()) {
                     return;
                 }
             }
         }
+    }
+
+    private void initializeConsumer() {
+        ensureConsumerGroup();
+        drainPendingEntries();
+    }
+
+    private boolean waitUntilReady() {
+        if (connector.isReady()) {
+            return true;
+        }
+
+        return !interruptedDuringBackoff();
     }
 
     private List<StreamEntry> readBatch() {
@@ -227,6 +252,7 @@ public final class StreamConsumer implements AutoCloseable, SignalTracker {
         long attempt = jedis.hincrBy(RedisKeys.attempts(self), entry.getID().toString(), 1);
         if (attempt > MAX_ATTEMPTS) {
             logger.warn("Dead-lettering inbox entry " + entry.getID() + " after " + attempt + " attempts.");
+            deadLetterCount.incrementAndGet();
             acknowledgeAndClean(jedis, entry.getID());
         }
         return attempt;
@@ -297,9 +323,8 @@ public final class StreamConsumer implements AutoCloseable, SignalTracker {
 
     private void ensureConsumerGroup() {
         try (Jedis jedis = connector.getResource()) {
-            // MKSTREAM creates the inbox on first use; XGROUP_LAST_ENTRY ($) means the group
-            // only sees messages published after it exists Ã¢â‚¬â€ history predating this node is
-            // irrelevant to a fresh consumer.
+            // Creates the input stream on first use.
+            // Only sees messages published after it's creation, irrelevant to a newly created consumer
             jedis.xgroupCreate(inbox, StreamProtocol.CONSUMER_GROUP, StreamEntryID.XGROUP_LAST_ENTRY, true);
         } catch (JedisDataException e) {
             if (!isGroupAlreadyExists(e)) {
@@ -312,8 +337,8 @@ public final class StreamConsumer implements AutoCloseable, SignalTracker {
         return e.getMessage() != null && e.getMessage().startsWith("BUSYGROUP");
     }
 
-    // Sleeps for the backoff window between attempts; returns true if the thread was
-    // interrupted (shutdown), signalling the loop to stop.
+    // Sleeps for the backoff window between attempts, returns true if the thread was
+    // interrupted, signalling the loop to stop.
     private boolean interruptedDuringBackoff() {
         try {
             Thread.sleep(BACKOFF_MILLIS);

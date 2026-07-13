@@ -1,7 +1,6 @@
 package br.com.markineo.pillar.redis.transport;
 
 import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
 import com.google.gson.JsonParser;
@@ -13,16 +12,16 @@ import br.com.markineo.pillar.core.task.MessageType;
 import br.com.markineo.pillar.error.PillarException;
 import java.util.Optional;
 
-// Gson is a transitive dep of Jedis 5, already relocated in the shadow jar Ã¢â‚¬â€ zero extra weight.
-// Short field names (v/t/c/s/ts/p) reduce wire size on high-frequency streams.
 public final class JsonEnvelopeCodec implements EnvelopeCodec {
-
+    // Short field names reduce wire size on high-frequency streams.
     private static final String F_VERSION = "v";
     private static final String F_TYPE = "t";
     private static final String F_CORRELATION = "c";
     private static final String F_SENDER = "s";
     private static final String F_SENT_AT = "ts";
     private static final String F_PAYLOAD = "p";
+
+    private static final int MAX_WIRE_LENGTH = 1024 * 256; // 256 KB
 
     private final Gson gson;
 
@@ -48,8 +47,23 @@ public final class JsonEnvelopeCodec implements EnvelopeCodec {
         }
     }
 
+    /**
+     * Passes the string through Gson, calls the read helper methods
+     * to extract and type each field.
+     * @param wire The message
+     * @return An {@link Envelope}.
+     */
     @Override
     public Envelope decode(String wire) {
+        if (wire == null) {
+            throw new PillarException("Wire payload is null.");
+        }
+
+        // DoS protection
+        if (wire.length() > MAX_WIRE_LENGTH) {
+            throw new PillarException("Envelope wire data exceeds maximum allowed size of " + MAX_WIRE_LENGTH + " characters.");
+        }
+
         try {
             JsonObject root = JsonParser.parseString(wire).getAsJsonObject();
 
@@ -97,11 +111,19 @@ public final class JsonEnvelopeCodec implements EnvelopeCodec {
         return readString(root, F_PAYLOAD);
     }
 
+    /**
+     * Unpacks the content and converts the raw text into a usable object.
+     * <p>
+     * Note: This method only supports standard flat objects (e.g., MyCustomMessage.class).
+     * Currently, it cannot unpack generic collections (such as a List of items), because
+     * the converter needs a concrete Class to know exactly how to build the object.
+     *
+     * @param envelope The sealed data.
+     * @param type The exact class format you want the data converted into.
+     * @return The populated object.
+     */
     @Override
     public <T> T decodePayload(Envelope envelope, Class<T> type) {
-        // Class<T> is sufficient for flat objects. When a payload carries a generic
-        // collection (e.g. List<Foo>), a TypeToken overload will be needed Ã¢â‚¬â€ deferred
-        // until a concrete case appears (YAGNI).
         try {
             return gson.fromJson(envelope.payload(), type);
         } catch (Exception e) {

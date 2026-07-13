@@ -10,10 +10,13 @@ import redis.clients.jedis.Jedis;
 import redis.clients.jedis.params.ScanParams;
 import redis.clients.jedis.resps.ScanResult;
 
-import java.util.List;
-import java.util.Optional;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.BiConsumer;
 
 public class InboxReaper implements AutoCloseable {
 
@@ -30,7 +33,8 @@ public class InboxReaper implements AutoCloseable {
     private final PillarLogger logger;
     private final long intervalMillis;
     
-    private final java.util.Set<ServerId> orphanCandidates = java.util.concurrent.ConcurrentHashMap.newKeySet();
+    private final Set<ServerId> orphanCandidates = ConcurrentHashMap.newKeySet();
+    private final AtomicLong reapCount = new AtomicLong(0);
 
     private ScheduledExecutorService scheduler;
 
@@ -48,58 +52,76 @@ public class InboxReaper implements AutoCloseable {
         scheduler.scheduleWithFixedDelay(this::reap, intervalMillis, intervalMillis, TimeUnit.MILLISECONDS);
     }
 
+    public long reapCount() {
+        return reapCount.get();
+    }
+
     private void reap() {
         connector.withResource(jedis -> {
-            String cursor = ScanParams.SCAN_POINTER_START;
-            ScanParams params = new ScanParams().match(RedisKeys.inboxPattern()).count(100);
+            Set<ServerId> discovered = new HashSet<>();
 
-            java.util.Set<ServerId> foundThisCycle = new java.util.HashSet<>();
+            scanInboxes(jedis, (key, id) -> {
+                discovered.add(id);
+                processInbox(jedis, key, id);
+            });
 
-            do {
-                ScanResult<String> result = jedis.scan(cursor, params);
-                List<String> keys = result.getResult();
-                for (String key : keys) {
-                    ServerId id = RedisKeys.parseInboxId(key);
-                    if (id != null) {
-                        foundThisCycle.add(id);
-                        processInbox(jedis, key, id);
-                    }
-                }
-                cursor = result.getCursor();
-            } while (!cursor.equals(ScanParams.SCAN_POINTER_START));
-
-            // Clean up candidates that no longer have inboxes (perhaps they were deleted or node recovered and deleted its own)
-            orphanCandidates.removeIf(id -> !foundThisCycle.contains(id));
+            discardMissingCandidates(discovered);
 
             return null;
         });
     }
 
-    private void processInbox(Jedis jedis, String inboxKey, ServerId id) {
-        // 1. Check memory-level gate (cachedFleet)
-        if (presence.cachedFleet().contains(id)) {
-            orphanCandidates.remove(id); // Healed
-            return; // Node is alive in the cached fleet
-        }
+    private void scanInboxes(Jedis jedis, BiConsumer<String, ServerId> consumer) {
+        String cursor = ScanParams.SCAN_POINTER_START;
+        ScanParams params = new ScanParams()
+                .match(RedisKeys.inboxPattern())
+                .count(100);
 
-        // 2. Idle Gate: wait for one full cycle before deleting
-        if (!orphanCandidates.contains(id)) {
-            // First time seen absent. Add to candidates and wait for next cycle.
-            orphanCandidates.add(id);
+        do {
+            ScanResult<String> result = jedis.scan(cursor, params);
+
+            for (String key : result.getResult()) {
+                ServerId id = RedisKeys.parseInboxId(key);
+
+                if (id != null) {
+                    consumer.accept(key, id);
+                }
+            }
+
+            cursor = result.getCursor();
+        } while (!ScanParams.SCAN_POINTER_START.equals(cursor));
+    }
+
+    private void discardMissingCandidates(Set<ServerId> discovered) {
+        orphanCandidates.removeIf(id -> !discovered.contains(id));
+    }
+
+    private void processInbox(Jedis jedis, String inboxKey, ServerId id) {
+        if (presence.cachedFleet().contains(id)) {
+            orphanCandidates.remove(id);
             return;
         }
 
-        // 3. Atomic check-and-delete via Lua
-        String presenceKey = RedisKeys.presence(id);
-        String attemptsKey = RedisKeys.attempts(id);
+        if (!orphanCandidates.add(id)) {
+            tryReapInbox(jedis, inboxKey, id);
+        }
+    }
 
+    private void tryReapInbox(Jedis jedis, String inboxKey, ServerId id) {
         try {
-            Object result = jedis.eval(LUA_SCRIPT, 3, presenceKey, inboxKey, attemptsKey);
-            if (result instanceof Long && ((Long) result) == 1L) {
+            Object result = jedis.eval(
+                    LUA_SCRIPT,
+                    3,
+                    RedisKeys.presence(id),
+                    inboxKey,
+                    RedisKeys.attempts(id));
+
+            if (Long.valueOf(1).equals(result)) {
                 logger.info("Reaped abandoned inbox and attempts for dead node: " + id.value());
+                reapCount.incrementAndGet();
                 orphanCandidates.remove(id);
             }
-        } catch (redis.clients.jedis.exceptions.JedisException e) {
+        } catch (Exception e) {
             logger.error("Failed to execute Lua script for reaping inbox " + inboxKey, e);
         }
     }
