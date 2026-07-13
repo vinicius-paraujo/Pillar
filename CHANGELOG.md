@@ -9,7 +9,24 @@ minor release.
 
 ## [Unreleased]
 
-_Iteration 4 — production hardening and resilience._
+## [0.4.0] — 2026-07-13
+
+Fourth release: production hardening and resilience. Transforms the system from a functioning MVP into a fault-tolerant mesh that degrades gracefully under fire.
+
+### Added
+- **/pillar doctor command** — new administrative subcommand providing typed decision telemetry and anomaly-focused health checks, built with a strictly local-first philosophy (zero-cost `AtomicLong` counters and ring buffers) to ensure availability even when Redis is down.
+- **Orphan-inbox reaping** — the proxy now runs a self-healing background service (`InboxReaper`) that safely reaps abandoned inboxes and dead-letters from permanently dead nodes using atomic Lua scripts (`EXISTS` + `DEL`), preventing memory leaks over time.
+- **Degraded modes** — introduced read-outcome-driven stale retention with bounded windows. Nodes now automatically fall back to their last-known-good state during transient Redis outages, explicitly documenting their degraded contracts.
+- **Targeted reloads** — `/pillar reload <role>` allows signal-only `RELOAD_CONFIG` fan-out to specific server roles, replacing cluster-wide config blasts.
+
+### Changed
+- Refactored `DecisionBuffer` (placement history) into a lock-free, zero-allocation Ring Buffer using `AtomicReferenceArray` and `AtomicInteger`, preventing O(N) traversal and GC churn on the login hot-path.
+- Rewrote `PlacementDecision` sum types using Java 21+ sealed interfaces and records, eliminating `Optional` heap allocation overheads in critical loops.
+- `HealthRegistry.oldestSnapshotAge()` now correctly returns `Optional<Duration>` to properly distinguish between uninitialized states and fresh snapshots, eliminating false-positive "0s" readings during degraded startups.
+- Refactored Fully Qualified Names in transport classes to use standard static imports, improving codebase readability.
+
+### Security & Tests
+- Added failure drills: automated Testcontainers assertions locking the degraded-mode contract and orphan reaping mechanisms, ensuring resilience features are immune to future regressions.
 
 ## [0.3.0] — 2026-07-10
 
