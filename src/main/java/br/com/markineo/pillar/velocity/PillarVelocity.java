@@ -23,6 +23,7 @@ import br.com.markineo.pillar.redis.presence.FleetView;
 import br.com.markineo.pillar.redis.transport.InboxDiagnostics;
 import br.com.markineo.pillar.redis.transport.JsonEnvelopeCodec;
 import br.com.markineo.pillar.redis.transport.PingHandler;
+import br.com.markineo.pillar.redis.transport.ReloadConfigHandler;
 import br.com.markineo.pillar.redis.transport.RequestSender;
 import br.com.markineo.pillar.redis.transport.StreamConsumer;
 import br.com.markineo.pillar.redis.transport.StreamPublisher;
@@ -116,7 +117,8 @@ public final class PillarVelocity {
         healthRegistry.start();
         EligibilityFilter eligibilityFilter = new EligibilityFilter(settings.hardCaps());
         PlacementSelector placementSelector = new PlacementSelector(reservations);
-        PlacementService placement = new PlacementService(eligibilityFilter, placementSelector, reservations);
+        br.com.markineo.pillar.core.placement.DecisionBuffer decisionBuffer = new br.com.markineo.pillar.core.placement.DecisionBuffer(15);
+        PlacementService placement = new PlacementService(eligibilityFilter, placementSelector, reservations, decisionBuffer);
 
         Gson gson = new com.google.gson.GsonBuilder().disableHtmlEscaping().create();
         JsonEnvelopeCodec codec = new JsonEnvelopeCodec(gson);
@@ -129,6 +131,7 @@ public final class PillarVelocity {
         handlers.register(new RoutePlayerHandler(server, placement, presence, healthRegistry, publisher, selfId, gson, logger));
         handlers.register(new SendPlayerMessageHandler(server, gson, logger));
         handlers.register(new BroadcastHandler(server, gson, logger));
+        handlers.register(new ReloadConfigHandler(configurations, selfId, publisher));
 
         this.consumer = new StreamConsumer(
                 redis,
@@ -156,7 +159,7 @@ public final class PillarVelocity {
         CommandMeta meta = commands.metaBuilder("pillar").plugin(this).build();
         commands.register(meta, new PillarCommand(
                 lang, configurations, presence, redis, new InboxDiagnostics(redis), requestSender,
-                new VelocityScheduler(), selfId, logger));
+                new VelocityScheduler(), selfId, logger, consumer, inboxReaper, healthRegistry, decisionBuffer));
 
         // Login event listener
         server.getEventManager().register(this, new LoginListener(

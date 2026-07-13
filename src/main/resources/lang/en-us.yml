@@ -17,8 +17,15 @@ connection:
   restored: "<green>Redis connection restored.</green>"
 
 command:
-  usage: "<gold>Pillar</gold><br><gray>  /pillar fleet</gray> <white>- Lists all nodes in the network.</white><br><gray>  /pillar status</gray> <white>- Shows node health and recent logs.</white><br><gray>  /pillar ping <server></gray> <white>- Measures latency to a node.</white><br><gray>  /pillar reload</gray> <white>- Reloads configs and languages.</white>"
-  reloaded: "<green>Configuration and language reloaded.</green>"
+  usage: "<gold>Pillar</gold><br><gray>  /pillar fleet</gray> <white>- Lists all nodes in the network.</white><br><gray>  /pillar status</gray> <white>- Shows node health and recent logs.</white><br><gray>  /pillar doctor</gray> <white>- Shows advanced internal diagnostic data.</white><br><gray>  /pillar ping <server></gray> <white>- Measures latency to a node.</white><br><gray>  /pillar reload [role]</gray> <white>- Reloads configs and languages locally or across a fleet role.</white>"
+  reloaded: "<green>Configuration and language reloaded locally.</green>"
+
+reload:
+  no_targets: "<red>No online nodes found with role '<white><role></white>'.</red>"
+  dispatching: "<yellow>Dispatching reload signal to <white><count></white> nodes...</yellow>"
+  success: "<gray>[<white><server></white>] <green>Reload successful.</green></gray>"
+  failed: "<gray>[<white><server></white>] <red>Reload failed: <message></red></gray>"
+  summary: "<green>Reload complete across <white><count></white> nodes.</green>"
 
 status:
   connection: "<gray>Connection: <white><state></white></gray>"
@@ -30,3 +37,14 @@ status:
 routing:
   no-eligible-node: "<red>There are no servers available right now. Please try again later.</red>"
   unroutable: "<red>Target server is not recognized by the proxy.</red>"
+
+doctor:
+  header: "<gold>Doctor Report</gold>"
+  connection: "<gray>Connection: <white><state></white> (for <duration>)</gray>"
+  transport: "<gray>Transport:</gray> <white><pending></white> pending, <white><dead_letters></white> dead-letters, <white><dispatch_queue></white> queued, <white><reaps></white> reaps"
+  transport_paper: "<gray>Transport:</gray> <white><pending></white> pending, <white><dead_letters></white> dead-letters, <white><dispatch_queue></white> queued"
+  health: "<gray>Health:</gray> <white><missing></white> missing snapshots, oldest is <white><oldest_age></white> old"
+  decisions_header: "<gray>Recent Decisions:</gray>"
+  decisions_empty: "<gray>  No recent decisions.</gray>"
+  decision_success: "<gray>  - <green>SUCCESS</green>: <role> -> <node></gray>"
+  decision_refused: "<gray>  - <red>REFUSED</red>: <role> (<reason>)</gray>"

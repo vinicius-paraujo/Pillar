@@ -19,6 +19,7 @@ import br.com.markineo.pillar.redis.presence.HealthService;
 import br.com.markineo.pillar.redis.transport.InboxDiagnostics;
 import br.com.markineo.pillar.redis.transport.JsonEnvelopeCodec;
 import br.com.markineo.pillar.redis.transport.PingHandler;
+import br.com.markineo.pillar.redis.transport.ReloadConfigHandler;
 import br.com.markineo.pillar.redis.presence.FleetView;
 import br.com.markineo.pillar.redis.presence.PresenceService;
 import br.com.markineo.pillar.redis.lifecycle.RedisConnector;
@@ -84,6 +85,7 @@ public final class Pillar extends JavaPlugin {
         StreamPublisher publisher = new StreamPublisher(redis, codec);
         HandlerRegistry handlers = new HandlerRegistry(correlations);
         handlers.register(new PingHandler(selfId, publisher, logger));
+        handlers.register(new ReloadConfigHandler(configurations, selfId, publisher));
 
         this.consumer = new StreamConsumer(redis, codec, selfId, executors, logger, handlers.asSink(codec, logger), 
                                            settings.consumerDedupWindow(), settings.consumerPoolSize(), settings.consumerQueueCapacity());
@@ -97,7 +99,7 @@ public final class Pillar extends JavaPlugin {
 
         getCommand("pillar").setExecutor(new PillarCommand(
                 lang, configurations, presence, redis, new InboxDiagnostics(redis), requestSender,
-                new PaperScheduler(this), selfId, logger));
+                new PaperScheduler(this), selfId, logger, consumer));
 
         logger.info("Pillar enabled as '" + settings.name() + "' (role " + settings.role() + ").");
     }

@@ -5,10 +5,8 @@ import java.util.Optional;
 
 /**
  * A generic lease primitive providing mutual exclusion for resources.
- * 
- * <p><strong>Guarantee boundary (ADR-0008):</strong>
  * This lease mechanism provides check-then-act atomicity (e.g., owner-checked renew and release)
- * against the backing store (Redis), but issues <strong>no fencing token</strong>.
+ * against Redis, but issues <strong>no fencing token</strong>.
  * A holder that is stalled past the lease TTL (due to a GC pause, clock drift, etc.)
  * might still attempt to act on the resource while a new owner already holds the lease.
  * Therefore, a lease alone must not guard a non-idempotent external effect unless paired

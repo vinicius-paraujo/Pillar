@@ -3,7 +3,7 @@ package br.com.markineo.pillar.config;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-public final class Configurations {
+public class Configurations {
 
     private final FileLoader loader;
     private final Map<String, ConfigurationFile> cache = new ConcurrentHashMap<>();

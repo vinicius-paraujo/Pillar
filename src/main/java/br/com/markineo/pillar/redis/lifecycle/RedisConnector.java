@@ -9,6 +9,7 @@ import redis.clients.jedis.JedisPoolConfig;
 import redis.clients.jedis.exceptions.JedisException;
 
 import java.time.Duration;
+import java.time.Instant;
 import java.util.Optional;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -25,6 +26,7 @@ public class RedisConnector implements AutoCloseable {
     private final PillarLogger logger;
 
     private final AtomicReference<ConnectionState> state = new AtomicReference<>(ConnectionState.STARTING);
+    private final AtomicReference<Instant> stateSince = new AtomicReference<>(Instant.now());
     private JedisPool pool;
     private ScheduledExecutorService healthCheck;
 
@@ -53,7 +55,7 @@ public class RedisConnector implements AutoCloseable {
     // A control plane holds several connections at once: the blocking XREADGROUP pins
     // one for up to the block window, the PEL drain another, plus heartbeat, health, and
     // command paths (placement reads join them in Iteration 3). The pool defaults are a
-    // trap here Ã¢â‚¬â€ maxTotal 8 starves under a login storm, and maxWait -1 then blocks
+    // trap here Ã¢â‚¬â€  maxTotal 8 starves under a login storm, and maxWait -1 then blocks
     // callers forever instead of failing fast into the degraded state the health loop
     // already handles. Size both explicitly; maxIdle tracks maxTotal so bursts don't
     // churn connections through the evictor.
@@ -67,6 +69,10 @@ public class RedisConnector implements AutoCloseable {
 
     public ConnectionState state() {
         return state.get();
+    }
+
+    public Duration stateDuration() {
+        return Duration.between(stateSince.get(), java.time.Instant.now());
     }
 
     public RedisSettings settings() {
@@ -120,6 +126,7 @@ public class RedisConnector implements AutoCloseable {
         // Refuse to leave SHUT_DOWN: a probe racing a close() must not revive the connector.
         ConnectionState previous = state.getAndUpdate(this::readyUnlessShutDown);
         if (previous != ConnectionState.READY && previous != ConnectionState.SHUT_DOWN) {
+            stateSince.set(Instant.now());
             logger.info("Redis connection ready (" + settings.host() + ":" + settings.port() + "). Recovered from degraded state.");
         }
     }
@@ -127,6 +134,7 @@ public class RedisConnector implements AutoCloseable {
     private void markDegraded(RuntimeException cause) {
         ConnectionState previous = state.getAndUpdate(this::degradedUnlessShutDown);
         if (previous != ConnectionState.DEGRADED && previous != ConnectionState.SHUT_DOWN) {
+            stateSince.set(Instant.now());
             logger.warn("Redis unreachable (" + settings.host() + ":" + settings.port()
                     + "); running degraded, retrying every " + HEALTH_INTERVAL.toSeconds()
                     + "s: " + cause.getMessage());

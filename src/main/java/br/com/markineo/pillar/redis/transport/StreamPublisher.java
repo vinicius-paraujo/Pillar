@@ -12,7 +12,7 @@ import redis.clients.jedis.exceptions.JedisException;
 
 import java.util.Map;
 
-public final class StreamPublisher {
+public class StreamPublisher {
 
     private final RedisConnector connector;
     private final EnvelopeCodec codec;

@@ -17,8 +17,15 @@ connection:
   restored: "<green>Conexão com o Redis restabelecida.</green>"
 
 command:
-  usage: "<gold>Pillar</gold><br><gray>  /pillar fleet</gray> <white>- Lista todos os nós da rede.</white><br><gray>  /pillar status</gray> <white>- Exibe integridade e logs do nó.</white><br><gray>  /pillar ping <server></gray> <white>- Mede a latência até um nó.</white><br><gray>  /pillar reload</gray> <white>- Recarrega configurações e idiomas.</white>"
-  reloaded: "<green>Configuração e idioma recarregados.</green>"
+  usage: "<gold>Pillar</gold><br><gray>  /pillar fleet</gray> <white>- Lista todos os nós da rede.</white><br><gray>  /pillar status</gray> <white>- Exibe integridade e logs do nó.</white><br><gray>  /pillar doctor</gray> <white>- Exibe dados de diagnóstico interno avançado.</white><br><gray>  /pillar ping <server></gray> <white>- Mede a latência até um nó.</white><br><gray>  /pillar reload [role]</gray> <white>- Recarrega configurações e idiomas localmente ou na rede.</white>"
+  reloaded: "<green>Configuração e idioma recarregados localmente.</green>"
+
+reload:
+  no_targets: "<red>Nenhum nó online encontrado com a role '<white><role></white>'.</red>"
+  dispatching: "<yellow>Enviando sinal de reload para <white><count></white> nós...</yellow>"
+  success: "<gray>[<white><server></white>] <green>Reload concluído com sucesso.</green></gray>"
+  failed: "<gray>[<white><server></white>] <red>Falha no reload: <message></red></gray>"
+  summary: "<green>Reload concluído em <white><count></white> nós.</green>"
 
 status:
   connection: "<gray>Conexão: <white><state></white></gray>"

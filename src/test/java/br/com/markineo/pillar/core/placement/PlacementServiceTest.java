@@ -26,7 +26,8 @@ class PlacementServiceTest {
         EligibilityFilter filter = new EligibilityFilter(caps);
         reservations = new ReservationRegistry(Clock.systemUTC(), Duration.ofSeconds(10));
         PlacementSelector selector = new PlacementSelector(reservations);
-        placement = new PlacementService(filter, selector, reservations);
+        DecisionBuffer decisionBuffer = new DecisionBuffer(15);
+        placement = new PlacementService(filter, selector, reservations, decisionBuffer);
     }
 
     @Test

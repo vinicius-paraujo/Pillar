@@ -60,6 +60,17 @@ public final class HealthRegistry implements AutoCloseable {
         return cache;
     }
 
+    public int missingHealthCount() {
+        return Math.max(0, presence.cachedFleet().size() - cache.size());
+    }
+
+    public Optional<Duration> oldestSnapshotAge() {
+        if (lastGoodRead == Instant.EPOCH) {
+            return Optional.empty();
+        }
+        return Optional.of(Duration.between(lastGoodRead, Instant.now()));
+    }
+
     private void tick() {
         try {
             Collection<ServerId> activeIds = presence.cachedFleet().members().stream()

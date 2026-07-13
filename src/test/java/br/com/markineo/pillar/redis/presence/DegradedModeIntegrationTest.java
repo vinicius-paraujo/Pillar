@@ -83,7 +83,8 @@ class DegradedModeIntegrationTest {
 
         EligibilityFilter filter = new EligibilityFilter(new HardCaps(100, 0.9, 50.0));
         PlacementSelector selector = new PlacementSelector(reservations);
-        placement = new PlacementService(filter, selector, reservations);
+        br.com.markineo.pillar.core.placement.DecisionBuffer decisionBuffer = new br.com.markineo.pillar.core.placement.DecisionBuffer(15);
+        placement = new PlacementService(filter, selector, reservations, decisionBuffer);
     }
 
     @AfterEach

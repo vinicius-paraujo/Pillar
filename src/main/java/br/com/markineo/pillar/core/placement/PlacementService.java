@@ -10,29 +10,42 @@ import java.util.Optional;
 import java.util.function.Function;
 
 public final class PlacementService {
-
     private final EligibilityFilter filter;
     private final PlacementSelector selector;
     private final ReservationRegistry reservations;
+    private final DecisionBuffer decisionBuffer;
 
-    public PlacementService(EligibilityFilter filter, PlacementSelector selector, ReservationRegistry reservations) {
+    public PlacementService(
+            EligibilityFilter filter,
+            PlacementSelector selector,
+            ReservationRegistry reservations,
+            DecisionBuffer decisionBuffer
+    ) {
         this.filter = filter;
         this.selector = selector;
         this.reservations = reservations;
+        this.decisionBuffer = decisionBuffer;
     }
 
     public ServerIdentity place(ServerRole role, FleetSnapshot fleet, Function<ServerIdentity, HealthSnapshot> healthLookup) throws NoEligibleNodeException {
         List<ServerIdentity> candidates = fleet.withRole(role);
         
-        List<ServerIdentity> eligible = candidates.stream()
+        List<ServerIdentity> eligible = candidates
+                .stream()
                 .filter(node -> filter.isEligible(healthLookup.apply(node)))
                 .toList();
 
         Optional<ServerIdentity> selected = selector.select(eligible, healthLookup);
 
-        return selected.map(node -> {
-            reservations.reserve(node);
-            return node;
-        }).orElseThrow(() -> new NoEligibleNodeException(role));
+        if (selected.isEmpty()) {
+            decisionBuffer.add(PlacementDecision.refused(java.time.Instant.now(), role, "No eligible node found"));
+            throw new NoEligibleNodeException(role);
+        }
+
+        ServerIdentity node = selected.get();
+        reservations.reserve(node);
+        decisionBuffer.add(PlacementDecision.success(java.time.Instant.now(), role, node.id()));
+        
+        return node;
     }
 }

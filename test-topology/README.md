@@ -94,3 +94,5 @@ Should show all three nodes within one heartbeat interval (~3 s) of startup.
 | Node death | Kill the alpha process | `alpha` disappears from fleet within ~9 s (TTL) on all other nodes |
 | Redis restart | `docker compose restart redis` | Nodes log one DEGRADED transition, reconnect, presence resumes |
 | Graceful restart | Stop and restart alpha | Consumer group retains undelivered entries; no messages lost |
+| Orphan Inbox Reaping (PIL-40) | Kill alpha process, wait 9s (TTL) and then 30s (Reaper Cycle) | The proxy logs `Reaped abandoned inbox and attempts for dead node: alpha`. Alpha's unread data structure is destroyed to preserve Redis memory. |
+| Degraded Mode (PIL-41) | `docker compose pause redis`, immediately try to login / route player via proxy | Login/Routing succeeds during the staleness window (cached data). After the window expires, it fails. Unpausing (`unpause redis`) immediately heals the mesh. |
