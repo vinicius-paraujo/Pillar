@@ -40,7 +40,7 @@ public final class PillarMessage<T extends Record> {
             throw new IllegalArgumentException("Payload class " + payloadClass.getName() + " must be a Java Record.");
         }
         
-        validateSerializable(payloadClass, payloadClass);
+        validateSerializable(payloadClass, payloadClass, new java.util.HashSet<>());
 
         PillarMessage<T> message = new PillarMessage<>(id, payloadClass);
         PillarMessage<?> existing = REGISTRY.putIfAbsent(id, message);
@@ -77,35 +77,53 @@ public final class PillarMessage<T extends Record> {
         REGISTRY.clear();
     }
 
-    private static void validateSerializable(Class<?> rootClass, Class<?> type) {
-        if (type.isPrimitive() || 
-            type == String.class || 
-            type == UUID.class || 
-            Number.class.isAssignableFrom(type) || 
-            type == Boolean.class ||
-            type == Character.class) {
-            return;
-        }
-        
-        if (List.class.isAssignableFrom(type)) {
-            return;
-        }
-        
-        if (type.isRecord()) {
-            for (java.lang.reflect.RecordComponent component : type.getRecordComponents()) {
-                Class<?> componentType = component.getType();
-                if (componentType == type) {
-                    throw new IllegalArgumentException("Recursive records are not supported for payloads (found in " + type.getName() + ")");
+    private static void validateSerializable(Class<?> rootClass, java.lang.reflect.Type type, java.util.Set<Class<?>> visited) {
+        if (type instanceof Class<?> clazz) {
+            if (clazz.isPrimitive() || 
+                clazz == String.class || 
+                clazz == UUID.class || 
+                Number.class.isAssignableFrom(clazz) || 
+                clazz == Boolean.class ||
+                clazz == Character.class) {
+                return;
+            }
+            
+            if (List.class.isAssignableFrom(clazz)) {
+                throw new IllegalArgumentException("Raw List types are not supported. Use a generic List with a serializable type argument.");
+            }
+            
+            if (clazz.isRecord()) {
+                if (!visited.add(clazz)) {
+                    throw new IllegalArgumentException("Recursive records are not supported for payloads (cycle detected involving " + clazz.getName() + ")");
                 }
-                try {
-                    validateSerializable(rootClass, componentType);
-                } catch (IllegalArgumentException e) {
-                    throw new IllegalArgumentException("Payload " + rootClass.getName() + " has an unserializable component: '" + component.getName() + "' of type " + componentType.getSimpleName() + ". Allowed types are primitives, String, UUID, List, and other records.", e);
+                
+                for (java.lang.reflect.RecordComponent component : clazz.getRecordComponents()) {
+                    try {
+                        validateSerializable(rootClass, component.getGenericType(), visited);
+                    } catch (IllegalArgumentException e) {
+                        if (e.getMessage().startsWith("Payload ")) {
+                            throw e;
+                        }
+                        throw new IllegalArgumentException("Payload " + rootClass.getName() + " has an unserializable component: '" + component.getName() + "' of type " + component.getGenericType().getTypeName() + ". " + e.getMessage(), e);
+                    }
+                }
+                
+                visited.remove(clazz);
+                return;
+            }
+            
+            throw new IllegalArgumentException("Type " + clazz.getName() + " is not serializable.");
+        } else if (type instanceof java.lang.reflect.ParameterizedType pt) {
+            if (pt.getRawType() instanceof Class<?> rawClass && List.class.isAssignableFrom(rawClass)) {
+                java.lang.reflect.Type[] typeArgs = pt.getActualTypeArguments();
+                if (typeArgs.length == 1) {
+                    validateSerializable(rootClass, typeArgs[0], visited);
+                    return;
                 }
             }
-            return;
+            throw new IllegalArgumentException("Parameterized type " + type.getTypeName() + " is not supported.");
+        } else {
+            throw new IllegalArgumentException("Type " + type.getTypeName() + " is not supported.");
         }
-        
-        throw new IllegalArgumentException("Type " + type.getName() + " is not serializable.");
     }
 }

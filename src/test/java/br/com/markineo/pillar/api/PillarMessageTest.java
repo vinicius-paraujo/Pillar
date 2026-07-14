@@ -63,6 +63,30 @@ class PillarMessageTest {
         assertTrue(ex.getMessage().contains("Recursive records"), "Exception message should prevent recursion");
     }
 
+    @Test
+    void testIndirectRecursiveRecord() {
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> {
+            PillarMessage.of("plugin:indirect_recursive", IndirectRecursiveA.class);
+        });
+        assertTrue(ex.getMessage().contains("cycle detected"), "Exception message should prevent indirect recursion");
+    }
+    
+    @Test
+    void testBadListGeneric() {
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> {
+            PillarMessage.of("plugin:bad_list", BadListPayload.class);
+        });
+        assertTrue(ex.getMessage().contains("unserializable component"), "Exception message should prevent bad generic types in List");
+    }
+
+    @Test
+    void testRawList() {
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> {
+            PillarMessage.of("plugin:raw_list", RawListPayload.class);
+        });
+        assertTrue(ex.getMessage().contains("Raw List types are not supported"), "Exception message should prevent raw lists");
+    }
+
     // --- Test records ---
     
     public record ValidPayload(
@@ -80,4 +104,12 @@ class PillarMessageTest {
     public record InvalidPayload(String name, Runnable runnable) {}
     
     public record RecursivePayload(String name, RecursivePayload self) {}
+
+    public record IndirectRecursiveA(String id, IndirectRecursiveB b) {}
+    public record IndirectRecursiveB(String id, IndirectRecursiveA a) {}
+    
+    public record BadListPayload(List<Runnable> tasks) {}
+
+    @SuppressWarnings("rawtypes")
+    public record RawListPayload(List items) {}
 }
