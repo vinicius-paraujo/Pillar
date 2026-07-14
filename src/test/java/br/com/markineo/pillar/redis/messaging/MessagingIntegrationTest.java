@@ -49,7 +49,10 @@ class MessagingIntegrationTest extends RedisIntegrationTest {
         StreamPublisher publisher = new StreamPublisher(connector, codec);
         RequestSender senderAlpha = new RequestSender(publisher, correlationsAlpha);
         
-        PlatformScheduler platformScheduler = task -> task.run();
+        PlatformScheduler platformScheduler = new PlatformScheduler() {
+            @Override public void runSync(Runnable task) { task.run(); }
+            @Override public boolean isMainThread() { return false; }
+        };
 
         // Alpha node
         HandlerRegistry alphaHandlers = new HandlerRegistry(correlationsAlpha);
@@ -100,7 +103,10 @@ class MessagingIntegrationTest extends RedisIntegrationTest {
         StreamPublisher publisher = new StreamPublisher(connector, codec);
         RequestSender senderAlpha = new RequestSender(publisher, correlationsAlpha);
         
-        PlatformScheduler platformScheduler = task -> task.run();
+        PlatformScheduler platformScheduler = new PlatformScheduler() {
+            @Override public void runSync(Runnable task) { task.run(); }
+            @Override public boolean isMainThread() { return false; }
+        };
 
         HandlerRegistry alphaHandlers = new HandlerRegistry(correlationsAlpha);
         StreamConsumer alphaConsumer = new StreamConsumer(connector, codec, alpha, executors, logger,

@@ -9,9 +9,11 @@ import br.com.markineo.pillar.api.Routing;
 final class PillarFacade implements Pillar {
 
     private final Messaging messaging;
+    private final Leases leases;
 
-    PillarFacade(Messaging messaging) {
+    PillarFacade(Messaging messaging, Leases leases) {
         this.messaging = messaging;
+        this.leases = leases;
     }
 
     @Override
@@ -21,7 +23,7 @@ final class PillarFacade implements Pillar {
 
     @Override
     public Leases leases() {
-        throw new UnsupportedOperationException("Leases is not yet implemented (PIL-83)");
+        return leases;
     }
 
     @Override

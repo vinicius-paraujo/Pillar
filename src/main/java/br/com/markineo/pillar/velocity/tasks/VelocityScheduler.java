@@ -9,4 +9,9 @@ public class VelocityScheduler implements PlatformScheduler {
         // so there is no main thread to synchronize with.
         task.run();
     }
+
+    @Override
+    public boolean isMainThread() {
+        return false;
+    }
 }

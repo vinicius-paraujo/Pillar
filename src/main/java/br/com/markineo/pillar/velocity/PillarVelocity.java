@@ -71,7 +71,7 @@ public final class PillarVelocity {
     private CorrelationRegistry correlations;
     private StreamConsumer consumer;
     private br.com.markineo.pillar.redis.transport.InboxReaper inboxReaper;
-    private java.util.concurrent.ExecutorService messagingPool;
+    private java.util.concurrent.ThreadPoolExecutor ioPool;
     private final com.velocitypowered.api.plugin.PluginContainer container;
 
     @Inject
@@ -171,12 +171,17 @@ public final class PillarVelocity {
 
         logger.info("Pillar initialized as '" + settings.name() + "'.");
 
-        this.messagingPool = executors.newBoundedWorkerPool("messaging", 4, 1000);
+        this.ioPool = executors.newBoundedWorkerPool("pillar-io", 4, 1000);
         MessagingImpl messagingImpl = new MessagingImpl(
-                publisher, requestSender, handlers, new VelocityScheduler(), codec, messagingPool, selfId, fleetView, logger
+                publisher, requestSender, handlers, new VelocityScheduler(), codec, ioPool, selfId, fleetView, logger
         );
 
-        PillarFacade facade = new PillarFacade(messagingImpl);
+        br.com.markineo.pillar.redis.lease.RedisLeaseService redisLeaseService = new br.com.markineo.pillar.redis.lease.RedisLeaseService(redis);
+        br.com.markineo.pillar.redis.lease.LeasesImpl leasesImpl = new br.com.markineo.pillar.redis.lease.LeasesImpl(
+                redisLeaseService, ioPool, new VelocityScheduler(), selfId
+        );
+
+        PillarFacade facade = new PillarFacade(messagingImpl, leasesImpl);
         PillarProvider.register(facade);
     }
 
@@ -186,8 +191,8 @@ public final class PillarVelocity {
         if (consumer != null) {
             consumer.close();
         }
-        if (messagingPool != null) {
-            messagingPool.shutdownNow();
+        if (ioPool != null) {
+            ioPool.shutdownNow();
         }
         if (correlations != null) {
             correlations.close();

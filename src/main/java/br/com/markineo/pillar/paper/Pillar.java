@@ -46,7 +46,7 @@ public final class Pillar extends JavaPlugin {
     private ScheduledExecutorService timeoutScheduler;
     private CorrelationRegistry correlations;
     private StreamConsumer consumer;
-    private java.util.concurrent.ExecutorService messagingPool;
+    private java.util.concurrent.ThreadPoolExecutor ioPool;
 
     @Override
     public void onEnable() {
@@ -106,12 +106,17 @@ public final class Pillar extends JavaPlugin {
 
         logger.info("Pillar enabled as '" + settings.name() + "' (role " + settings.role() + ").");
 
-        this.messagingPool = executors.newBoundedWorkerPool("messaging", 4, 1000);
+        this.ioPool = executors.newBoundedWorkerPool("pillar-io", 4, 1000);
         MessagingImpl messagingImpl = new MessagingImpl(
-                publisher, requestSender, handlers, new PaperScheduler(this), codec, messagingPool, selfId, fleetView, logger
+                publisher, requestSender, handlers, new PaperScheduler(this), codec, ioPool, selfId, fleetView, logger
         );
 
-        PillarFacade facade = new PillarFacade(messagingImpl);
+        br.com.markineo.pillar.redis.lease.RedisLeaseService redisLeaseService = new br.com.markineo.pillar.redis.lease.RedisLeaseService(redis);
+        br.com.markineo.pillar.redis.lease.LeasesImpl leasesImpl = new br.com.markineo.pillar.redis.lease.LeasesImpl(
+                redisLeaseService, ioPool, new PaperScheduler(this), selfId
+        );
+
+        PillarFacade facade = new PillarFacade(messagingImpl, leasesImpl);
         PillarProvider.register(facade);
     }
 
@@ -121,8 +126,8 @@ public final class Pillar extends JavaPlugin {
         if (consumer != null) {
             consumer.close();
         }
-        if (messagingPool != null) {
-            messagingPool.shutdownNow();
+        if (ioPool != null) {
+            ioPool.shutdownNow();
         }
         if (correlations != null) {
             correlations.close();

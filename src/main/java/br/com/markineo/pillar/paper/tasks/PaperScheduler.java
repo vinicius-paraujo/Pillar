@@ -19,4 +19,9 @@ public class PaperScheduler implements PlatformScheduler {
             Bukkit.getScheduler().runTask(plugin, task);
         }
     }
+
+    @Override
+    public boolean isMainThread() {
+        return Bukkit.isPrimaryThread();
+    }
 }

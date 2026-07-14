@@ -59,15 +59,15 @@ public class MessagingImpl implements Messaging {
     public <T extends Record> CompletableFuture<Void> send(PillarMessage<T> message, T payload, String targetServerId) {
         validateTarget(targetServerId);
         String json = codec.encodePayload(payload);
-        return CompletableFuture.runAsync(() -> {
+        return br.com.markineo.pillar.concurrent.PillarFutures.runGuarded(() -> {
             publisher.publish(new ServerId(targetServerId), Envelope.oneWay(new MessageType(message.id()), selfId, json));
-        }, workerPool);
+        }, workerPool, scheduler);
     }
 
     @Override
     public <T extends Record> CompletableFuture<Void> broadcast(PillarMessage<T> message, T payload) {
         String json = codec.encodePayload(payload);
-        return CompletableFuture.runAsync(() -> {
+        return br.com.markineo.pillar.concurrent.PillarFutures.runGuarded(() -> {
             fleetView.snapshot().ifPresent(snapshot -> {
                 for (ServerIdentity identity : snapshot.members()) {
                     if (!identity.id().equals(selfId)) {
@@ -75,14 +75,14 @@ public class MessagingImpl implements Messaging {
                     }
                 }
             });
-        }, workerPool);
+        }, workerPool, scheduler);
     }
 
     @Override
     public <T extends Record, R extends Record> CompletableFuture<R> request(PillarMessage<T> requestType, T payload, PillarMessage<R> responseType, String targetServerId) {
         validateTarget(targetServerId);
         String json = codec.encodePayload(payload);
-        CompletableFuture<R> result = new CompletableFuture<>();
+        CompletableFuture<R> result = br.com.markineo.pillar.concurrent.PillarFutures.create(scheduler);
         CompletableFuture.runAsync(() -> {
             try {
                 CompletableFuture<Envelope> future = requestSender.send(new ServerId(targetServerId), Envelope.request(new MessageType(requestType.id()), selfId, json));
