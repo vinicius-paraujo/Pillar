@@ -4,15 +4,19 @@ import br.com.markineo.pillar.api.Leases;
 import br.com.markineo.pillar.api.Messaging;
 import br.com.markineo.pillar.api.Pillar;
 import br.com.markineo.pillar.api.Routing;
+import br.com.markineo.pillar.core.messaging.MessagingImpl;
 
 final class PillarFacade implements Pillar {
     
-    PillarFacade() {
+    private final Messaging messaging;
+
+    PillarFacade(MessagingImpl messaging) {
+        this.messaging = messaging;
     }
 
     @Override
     public Messaging messaging() {
-        throw new UnsupportedOperationException("Messaging is not yet implemented (PIL-82)");
+        return messaging;
     }
 
     @Override

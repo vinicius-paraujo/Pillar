@@ -11,6 +11,7 @@ import br.com.markineo.pillar.core.identity.ServerRole;
 import br.com.markineo.pillar.core.task.CorrelationRegistry;
 import br.com.markineo.pillar.core.task.HandlerRegistry;
 import br.com.markineo.pillar.api.PillarProvider;
+import br.com.markineo.pillar.core.messaging.MessagingImpl;
 import br.com.markineo.pillar.error.ConfigurationException;
 import br.com.markineo.pillar.logger.PillarLogger;
 import br.com.markineo.pillar.paper.commands.PillarCommand;
@@ -104,7 +105,12 @@ public final class Pillar extends JavaPlugin {
 
         logger.info("Pillar enabled as '" + settings.name() + "' (role " + settings.role() + ").");
 
-        PillarFacade facade = new PillarFacade();
+        java.util.concurrent.ExecutorService messagingPool = executors.newBoundedWorkerPool("messaging", 4, 1000);
+        MessagingImpl messagingImpl = new MessagingImpl(
+                publisher, requestSender, handlers, new PaperScheduler(this), gson, messagingPool, selfId, fleetView, logger
+        );
+
+        PillarFacade facade = new PillarFacade(messagingImpl);
         PillarProvider.register(facade);
     }
 
