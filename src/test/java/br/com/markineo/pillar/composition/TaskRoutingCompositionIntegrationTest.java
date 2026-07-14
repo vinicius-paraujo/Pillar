@@ -9,7 +9,7 @@ import br.com.markineo.pillar.core.task.CorrelationRegistry;
 import br.com.markineo.pillar.core.task.Envelope;
 import br.com.markineo.pillar.core.task.EnvelopeCodec;
 import br.com.markineo.pillar.core.task.HandlerRegistry;
-import br.com.markineo.pillar.core.task.MessageHandler;
+import br.com.markineo.pillar.core.task.EnvelopeHandler;
 import br.com.markineo.pillar.core.task.MessageType;
 import br.com.markineo.pillar.core.task.PillarMessageTypes;
 import br.com.markineo.pillar.redis.RedisIntegrationTest;
@@ -64,7 +64,7 @@ class TaskRoutingCompositionIntegrationTest extends RedisIntegrationTest {
     }
 
     private void setupProxyHandlers() {
-        proxyNode.handlers.register(new MessageHandler() {
+        proxyNode.handlers.register(new EnvelopeHandler() {
             @Override
             public MessageType type() {
                 return PillarMessageTypes.ROUTE_PLAYER;
@@ -83,7 +83,7 @@ class TaskRoutingCompositionIntegrationTest extends RedisIntegrationTest {
     }
 
     private void setupMinigameHandlers() {
-        minigameNode.handlers.register(new MessageHandler() {
+        minigameNode.handlers.register(new EnvelopeHandler() {
             @Override
             public MessageType type() {
                 return CREATE_ISLAND;

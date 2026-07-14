@@ -5,13 +5,13 @@ import br.com.markineo.pillar.core.identity.ServerId;
 import br.com.markineo.pillar.core.task.CorrelationId;
 import br.com.markineo.pillar.core.task.Envelope;
 import br.com.markineo.pillar.core.task.EnvelopeCodec;
-import br.com.markineo.pillar.core.task.MessageHandler;
+import br.com.markineo.pillar.core.task.EnvelopeHandler;
 import br.com.markineo.pillar.core.task.MessageType;
 import br.com.markineo.pillar.core.task.PillarMessageTypes;
 
 import java.util.Optional;
 
-public final class ReloadConfigHandler implements MessageHandler {
+public final class ReloadConfigHandler implements EnvelopeHandler {
 
     private final Configurations configurations;
     private final ServerId self;

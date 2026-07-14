@@ -35,6 +35,11 @@ class HandlerRegistryTest {
         public <T> T decodePayload(Envelope envelope, Class<T> type) {
             throw new UnsupportedOperationException();
         }
+
+        @Override
+        public String encodePayload(Object payload) {
+            throw new UnsupportedOperationException();
+        }
     };
 
     private ScheduledExecutorService scheduler;
@@ -88,7 +93,7 @@ class HandlerRegistryTest {
         assertEquals(0, ping.calls.get());
     }
 
-    private static final class RecordingHandler implements MessageHandler {
+    private static final class RecordingHandler implements EnvelopeHandler {
         private final MessageType type;
         private final AtomicInteger calls = new AtomicInteger();
 

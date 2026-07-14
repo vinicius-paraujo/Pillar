@@ -6,13 +6,13 @@ import java.util.function.Consumer;
 
 public final class HandlerRegistry {
     private final CorrelationRegistry correlations;
-    private final ConcurrentHashMap<String, MessageHandler> handlers = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, EnvelopeHandler> handlers = new ConcurrentHashMap<>();
 
     public HandlerRegistry(CorrelationRegistry correlations) {
         this.correlations = correlations;
     }
 
-    public void register(MessageHandler handler) {
+    public void register(EnvelopeHandler handler) {
         handlers.put(handler.type().value(), handler);
     }
 
@@ -32,7 +32,7 @@ public final class HandlerRegistry {
             return;
         }
 
-        MessageHandler handler = handlers.get(envelope.type().value());
+        EnvelopeHandler handler = handlers.get(envelope.type().value());
         if (handler == null) {
             logger.warn("No handler registered for message type '" + envelope.type() + "'; discarding.");
             return;

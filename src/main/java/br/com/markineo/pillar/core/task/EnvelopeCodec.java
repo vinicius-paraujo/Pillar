@@ -18,4 +18,10 @@ public interface EnvelopeCodec {
      * @throws PillarException if the payload does not match the expected shape
      */
     <T> T decodePayload(Envelope envelope, Class<T> type);
+
+    /**
+     * Encodes a payload object into its string representation.
+     * @throws PillarException if serialization fails
+     */
+    String encodePayload(Object payload);
 }

@@ -5,7 +5,7 @@ import br.com.markineo.pillar.core.messaging.SendPlayerMessageRequest;
 import br.com.markineo.pillar.core.task.CorrelationId;
 import br.com.markineo.pillar.core.task.Envelope;
 import br.com.markineo.pillar.core.task.EnvelopeCodec;
-import br.com.markineo.pillar.core.task.MessageHandler;
+import br.com.markineo.pillar.core.task.EnvelopeHandler;
 import br.com.markineo.pillar.core.task.MessageType;
 import br.com.markineo.pillar.core.task.PillarMessageTypes;
 import br.com.markineo.pillar.logger.PillarLogger;
@@ -16,7 +16,7 @@ import net.kyori.adventure.text.minimessage.MiniMessage;
 
 import java.util.Optional;
 
-public final class SendPlayerMessageHandler implements MessageHandler {
+public final class SendPlayerMessageHandler implements EnvelopeHandler {
 
     private final ProxyServer server;
     private final Gson gson;

@@ -4,13 +4,13 @@ import br.com.markineo.pillar.api.Leases;
 import br.com.markineo.pillar.api.Messaging;
 import br.com.markineo.pillar.api.Pillar;
 import br.com.markineo.pillar.api.Routing;
-import br.com.markineo.pillar.core.messaging.MessagingImpl;
+
 
 final class PillarFacade implements Pillar {
 
     private final Messaging messaging;
 
-    PillarFacade(MessagingImpl messaging) {
+    PillarFacade(Messaging messaging) {
         this.messaging = messaging;
     }
 

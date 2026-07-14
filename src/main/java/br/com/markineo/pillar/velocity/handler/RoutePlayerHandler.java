@@ -12,7 +12,7 @@ import br.com.markineo.pillar.core.placement.RoutePlayerResponse;
 import br.com.markineo.pillar.core.task.CorrelationId;
 import br.com.markineo.pillar.core.task.Envelope;
 import br.com.markineo.pillar.core.task.EnvelopeCodec;
-import br.com.markineo.pillar.core.task.MessageHandler;
+import br.com.markineo.pillar.core.task.EnvelopeHandler;
 import br.com.markineo.pillar.core.task.MessageType;
 import br.com.markineo.pillar.core.task.PillarMessageTypes;
 import br.com.markineo.pillar.error.PillarException;
@@ -26,7 +26,7 @@ import com.velocitypowered.api.proxy.server.RegisteredServer;
 
 import java.util.Optional;
 
-public final class RoutePlayerHandler implements MessageHandler {
+public final class RoutePlayerHandler implements EnvelopeHandler {
 
     private final ProxyServer server;
     private final PlacementService placement;

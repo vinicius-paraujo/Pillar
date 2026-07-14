@@ -3,13 +3,13 @@ package br.com.markineo.pillar.redis.transport;
 import br.com.markineo.pillar.core.identity.ServerId;
 import br.com.markineo.pillar.core.task.Envelope;
 import br.com.markineo.pillar.core.task.EnvelopeCodec;
-import br.com.markineo.pillar.core.task.MessageHandler;
+import br.com.markineo.pillar.core.task.EnvelopeHandler;
 import br.com.markineo.pillar.core.task.MessageType;
 import br.com.markineo.pillar.core.task.PillarMessageTypes;
 import br.com.markineo.pillar.error.PillarException;
 import br.com.markineo.pillar.logger.PillarLogger;
 
-public final class PingHandler implements MessageHandler {
+public final class PingHandler implements EnvelopeHandler {
 
     private final ServerId self;
     private final StreamPublisher publisher;

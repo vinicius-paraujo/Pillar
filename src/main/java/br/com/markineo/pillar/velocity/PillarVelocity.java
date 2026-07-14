@@ -12,7 +12,7 @@ import br.com.markineo.pillar.core.identity.ServerRole;
 import br.com.markineo.pillar.core.task.CorrelationRegistry;
 import br.com.markineo.pillar.core.task.HandlerRegistry;
 import br.com.markineo.pillar.api.PillarProvider;
-import br.com.markineo.pillar.core.messaging.MessagingImpl;
+import br.com.markineo.pillar.redis.messaging.MessagingImpl;
 import br.com.markineo.pillar.error.ConfigurationException;
 import br.com.markineo.pillar.logger.PillarLogger;
 import com.google.gson.Gson;
@@ -71,6 +71,7 @@ public final class PillarVelocity {
     private CorrelationRegistry correlations;
     private StreamConsumer consumer;
     private br.com.markineo.pillar.redis.transport.InboxReaper inboxReaper;
+    private java.util.concurrent.ExecutorService messagingPool;
     private final com.velocitypowered.api.plugin.PluginContainer container;
 
     @Inject
@@ -170,9 +171,9 @@ public final class PillarVelocity {
 
         logger.info("Pillar initialized as '" + settings.name() + "'.");
 
-        java.util.concurrent.ExecutorService messagingPool = executors.newBoundedWorkerPool("messaging", 4, 1000);
+        this.messagingPool = executors.newBoundedWorkerPool("messaging", 4, 1000);
         MessagingImpl messagingImpl = new MessagingImpl(
-                publisher, requestSender, handlers, new VelocityScheduler(), gson, messagingPool, selfId, fleetView, logger
+                publisher, requestSender, handlers, new VelocityScheduler(), codec, messagingPool, selfId, fleetView, logger
         );
 
         PillarFacade facade = new PillarFacade(messagingImpl);
@@ -184,6 +185,9 @@ public final class PillarVelocity {
         PillarProvider.unregister();
         if (consumer != null) {
             consumer.close();
+        }
+        if (messagingPool != null) {
+            messagingPool.shutdownNow();
         }
         if (correlations != null) {
             correlations.close();

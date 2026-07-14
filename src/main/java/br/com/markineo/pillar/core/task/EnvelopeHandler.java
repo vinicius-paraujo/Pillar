@@ -1,6 +1,6 @@
 package br.com.markineo.pillar.core.task;
 
-public interface MessageHandler {
+public interface EnvelopeHandler {
     MessageType type();
 
     // codec is passed so handlers can decode the payload without importing a JSON library.

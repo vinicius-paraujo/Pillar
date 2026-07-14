@@ -5,7 +5,7 @@ import br.com.markineo.pillar.core.messaging.BroadcastRequest;
 import br.com.markineo.pillar.core.task.CorrelationId;
 import br.com.markineo.pillar.core.task.Envelope;
 import br.com.markineo.pillar.core.task.EnvelopeCodec;
-import br.com.markineo.pillar.core.task.MessageHandler;
+import br.com.markineo.pillar.core.task.EnvelopeHandler;
 import br.com.markineo.pillar.core.task.MessageType;
 import br.com.markineo.pillar.core.task.PillarMessageTypes;
 import br.com.markineo.pillar.logger.PillarLogger;
@@ -13,7 +13,7 @@ import com.velocitypowered.api.proxy.ProxyServer;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 
-public final class BroadcastHandler implements MessageHandler {
+public final class BroadcastHandler implements EnvelopeHandler {
 
     private final ProxyServer server;
     private final Gson gson;
