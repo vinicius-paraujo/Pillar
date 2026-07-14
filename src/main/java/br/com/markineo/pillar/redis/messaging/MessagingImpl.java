@@ -57,6 +57,7 @@ public class MessagingImpl implements Messaging {
 
     @Override
     public <T extends Record> CompletableFuture<Void> send(PillarMessage<T> message, T payload, String targetServerId) {
+        validateTarget(targetServerId);
         String json = codec.encodePayload(payload);
         return CompletableFuture.runAsync(() -> {
             publisher.publish(new ServerId(targetServerId), Envelope.oneWay(new MessageType(message.id()), selfId, json));
@@ -79,6 +80,7 @@ public class MessagingImpl implements Messaging {
 
     @Override
     public <T extends Record, R extends Record> CompletableFuture<R> request(PillarMessage<T> requestType, T payload, PillarMessage<R> responseType, String targetServerId) {
+        validateTarget(targetServerId);
         String json = codec.encodePayload(payload);
         CompletableFuture<R> result = new CompletableFuture<>();
         CompletableFuture.runAsync(() -> {
@@ -148,7 +150,21 @@ public class MessagingImpl implements Messaging {
                     });
                 } catch (Exception e) {
                     logger.error("Uncaught exception in request handler for " + requestType.id(), e);
+                    // TODO(PIL-82): Limitação conhecida: publicar resposta de erro para que o solicitante não sofra timeout silencioso
                 }
+            }
+        });
+    }
+
+    private void validateTarget(String targetServerId) {
+        if (targetServerId == null || targetServerId.isBlank()) {
+            throw new IllegalArgumentException("Target server ID cannot be null or blank");
+        }
+        ServerId targetId = new ServerId(targetServerId);
+        fleetView.snapshot().ifPresent(snapshot -> {
+            boolean exists = snapshot.members().stream().anyMatch(m -> m.id().equals(targetId));
+            if (!exists) {
+                throw new IllegalArgumentException("Target server '" + targetServerId + "' is not present in the fleet");
             }
         });
     }
