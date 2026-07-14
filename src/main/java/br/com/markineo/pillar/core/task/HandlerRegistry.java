@@ -16,7 +16,6 @@ public final class HandlerRegistry {
         handlers.put(handler.type().value(), handler);
     }
 
-    // Returns the Consumer<Envelope> wired as the StreamConsumer sink.
     // Dispatch order: responses are completed first so the future resolves before
     // any secondary handler could also claim the envelope.
     public Consumer<Envelope> asSink(EnvelopeCodec codec, PillarLogger logger) {
@@ -29,7 +28,7 @@ public final class HandlerRegistry {
         // an edge: a node pinging itself would match its own pending correlationId here,
         // resolve the future with the ping (not a pong), and the handler would never run.
         // Accepted limitation for MVP; /pillar ping <self> should short-circuit earlier.
-        if (couldBeAwaitedResponse(envelope) && correlations.complete(envelope.correlationId().get(), envelope)) {
+        if (hasCorrelationId(envelope) && correlations.complete(envelope.correlationId().get(), envelope)) {
             return;
         }
 
@@ -45,7 +44,7 @@ public final class HandlerRegistry {
     // An envelope with a correlationId might be an awaited response, but it could also be
     // a request (e.g. ping). The actual check is correlations.complete() returning true,
     // meaning someone was actually waiting for this id.
-    private boolean couldBeAwaitedResponse(Envelope envelope) {
+    private boolean hasCorrelationId(Envelope envelope) {
         return envelope.correlationId().isPresent();
     }
 }

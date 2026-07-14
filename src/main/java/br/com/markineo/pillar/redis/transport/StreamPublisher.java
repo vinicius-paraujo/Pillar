@@ -6,6 +6,7 @@ import br.com.markineo.pillar.core.identity.ServerId;
 import br.com.markineo.pillar.core.task.Envelope;
 import br.com.markineo.pillar.core.task.EnvelopeCodec;
 import br.com.markineo.pillar.error.PillarException;
+import br.com.markineo.pillar.error.PublishFailedException;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.StreamEntryID;
 import redis.clients.jedis.exceptions.JedisException;
@@ -28,7 +29,7 @@ public class StreamPublisher {
             jedis.xadd(RedisKeys.inbox(destination), StreamEntryID.NEW_ENTRY,
                     Map.of(StreamProtocol.FIELD_DATA, wire));
         } catch (JedisException e) {
-            throw new PillarException("Failed to publish to inbox of " + destination.value() + ".", e);
+            throw new PublishFailedException("Failed to publish to inbox of " + destination.value() + ".", e);
         }
     }
 }

@@ -9,7 +9,6 @@ import br.com.markineo.pillar.core.task.PillarMessageTypes;
 import br.com.markineo.pillar.error.PillarException;
 import br.com.markineo.pillar.logger.PillarLogger;
 
-// Lives in redis because it needs StreamPublisher, which touches Jedis.
 public final class PingHandler implements MessageHandler {
 
     private final ServerId self;

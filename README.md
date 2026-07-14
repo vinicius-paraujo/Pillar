@@ -1,13 +1,13 @@
 # Pillar
 
 **The control plane for Minecraft networks.** Presence, messaging, and health-aware
-placement for a fleet of servers — as one plugin that runs on both your game servers and
-your proxy.
+placement for a fleet of servers.
 
 <!-- TODO: wire real badges once CI/releases exist. -->
 ![Java](https://img.shields.io/badge/Java-25-orange)
 ![License](https://img.shields.io/badge/License-Apache--2.0-blue)
 ![Status](https://img.shields.io/badge/status-pre--release-yellow)
+![Discord]()
 
 > Pillar gives a multi-server network a shared nervous system: every node knows who else
 > is alive, can send a message and get an answer, and can decide where new work should

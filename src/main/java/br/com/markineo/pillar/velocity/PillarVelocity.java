@@ -11,6 +11,7 @@ import br.com.markineo.pillar.core.identity.ServerIdentity;
 import br.com.markineo.pillar.core.identity.ServerRole;
 import br.com.markineo.pillar.core.task.CorrelationRegistry;
 import br.com.markineo.pillar.core.task.HandlerRegistry;
+import br.com.markineo.pillar.api.PillarProvider;
 import br.com.markineo.pillar.error.ConfigurationException;
 import br.com.markineo.pillar.logger.PillarLogger;
 import com.google.gson.Gson;
@@ -167,10 +168,14 @@ public final class PillarVelocity {
         ));
 
         logger.info("Pillar initialized as '" + settings.name() + "'.");
+
+        PillarFacade facade = new PillarFacade();
+        PillarProvider.register(facade);
     }
 
     @Subscribe
     public void onProxyShutdown(ProxyShutdownEvent event) {
+        PillarProvider.unregister();
         if (consumer != null) {
             consumer.close();
         }

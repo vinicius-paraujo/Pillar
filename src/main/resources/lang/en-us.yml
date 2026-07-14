@@ -8,6 +8,7 @@ fleet:
 ping:
   success: "<green>Pong from <white><server></white> in <white><latency>ms</white>.</green>"
   timeout: "<red>No response from <white><server></white> (timed out).</red>"
+  publish_failed: "<red>Could not reach Redis to send ping to <white><server></white>.</red>"
   failed: "<red>Request to <white><server></white> failed: <message></red>"
   unknown_server: "<red>Unknown server: <white><server></white>.</red>"
   self: "<red>Cannot ping the node you are running this command on.</red>"

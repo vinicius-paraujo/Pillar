@@ -8,6 +8,7 @@ import br.com.markineo.pillar.core.identity.ServerId;
 import br.com.markineo.pillar.core.identity.ServerIdentity;
 import br.com.markineo.pillar.core.identity.ServerRole;
 import br.com.markineo.pillar.error.TimeoutPillarException;
+import br.com.markineo.pillar.error.PublishFailedException;
 import br.com.markineo.pillar.logger.PillarLogger;
 import br.com.markineo.pillar.redis.transport.InboxDiagnostics;
 import br.com.markineo.pillar.redis.lifecycle.RedisConnector;
@@ -139,6 +140,8 @@ public final class PillarCommand implements TabExecutor {
                     Throwable root = error instanceof java.util.concurrent.CompletionException ? error.getCause() : error;
                     if (root instanceof TimeoutPillarException) {
                         sender.sendMessage(render("ping.timeout", Placeholder.unparsed("server", target.value())));
+                    } else if (root instanceof PublishFailedException) {
+                        sender.sendMessage(render("ping.publish_failed", Placeholder.unparsed("server", target.value())));
                     } else {
                         sender.sendMessage(render("ping.failed", 
                                 Placeholder.unparsed("server", target.value()),

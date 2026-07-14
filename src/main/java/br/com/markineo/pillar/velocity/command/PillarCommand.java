@@ -8,6 +8,7 @@ import br.com.markineo.pillar.core.identity.ServerId;
 import br.com.markineo.pillar.core.identity.ServerIdentity;
 import br.com.markineo.pillar.core.identity.ServerRole;
 import br.com.markineo.pillar.error.TimeoutPillarException;
+import br.com.markineo.pillar.error.PublishFailedException;
 import br.com.markineo.pillar.logger.PillarLogger;
 import br.com.markineo.pillar.redis.transport.InboxDiagnostics;
 import br.com.markineo.pillar.redis.presence.PresenceService;
@@ -166,6 +167,8 @@ public final class PillarCommand implements SimpleCommand {
                 Throwable root = error instanceof CompletionException ? error.getCause() : error;
                 if (root instanceof TimeoutPillarException) {
                     source.sendMessage(render("ping.timeout", Placeholder.unparsed("server", target.value())));
+                } else if (root instanceof PublishFailedException) {
+                    source.sendMessage(render("ping.publish_failed", Placeholder.unparsed("server", target.value())));
                 } else {
                     source.sendMessage(render("ping.failed",
                             Placeholder.unparsed("server", target.value()),

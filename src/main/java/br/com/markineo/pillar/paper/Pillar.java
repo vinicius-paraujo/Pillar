@@ -10,6 +10,7 @@ import br.com.markineo.pillar.core.identity.ServerIdentity;
 import br.com.markineo.pillar.core.identity.ServerRole;
 import br.com.markineo.pillar.core.task.CorrelationRegistry;
 import br.com.markineo.pillar.core.task.HandlerRegistry;
+import br.com.markineo.pillar.api.PillarProvider;
 import br.com.markineo.pillar.error.ConfigurationException;
 import br.com.markineo.pillar.logger.PillarLogger;
 import br.com.markineo.pillar.paper.commands.PillarCommand;
@@ -102,10 +103,14 @@ public final class Pillar extends JavaPlugin {
                 new PaperScheduler(this), selfId, logger, consumer));
 
         logger.info("Pillar enabled as '" + settings.name() + "' (role " + settings.role() + ").");
+
+        PillarFacade facade = new PillarFacade();
+        PillarProvider.register(facade);
     }
 
     @Override
     public void onDisable() {
+        PillarProvider.unregister();
         if (consumer != null) {
             consumer.close();
         }
