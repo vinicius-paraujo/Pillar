@@ -28,6 +28,6 @@ final class PillarFacade implements Pillar {
 
     @Override
     public Routing routing() {
-        throw new UnsupportedOperationException("Routing is not yet implemented (PIL-84)");
+        throw new UnsupportedOperationException("routing().move é uma operação de data-plane; chame de um servidor backend, ou use a API nativa do Velocity no proxy");
     }
 }

@@ -10,10 +10,12 @@ final class PillarFacade implements Pillar {
     
     private final Messaging messaging;
     private final Leases leases;
+    private final Routing routing;
 
-    PillarFacade(Messaging messaging, Leases leases) {
+    PillarFacade(Messaging messaging, Leases leases, Routing routing) {
         this.messaging = messaging;
         this.leases = leases;
+        this.routing = routing;
     }
 
     @Override
@@ -28,6 +30,6 @@ final class PillarFacade implements Pillar {
 
     @Override
     public Routing routing() {
-        throw new UnsupportedOperationException("Routing is not yet implemented (PIL-84)");
+        return routing;
     }
 }

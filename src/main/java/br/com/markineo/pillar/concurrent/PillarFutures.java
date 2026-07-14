@@ -48,27 +48,35 @@ public final class PillarFutures {
             this.scheduler = scheduler;
         }
 
-        private void checkThread() {
+        // Derived stages (thenApply, thenAccept, whenComplete, ...) are built through this
+        // factory; overriding it makes them GuardedFuture too, so the anti-join guard survives
+        // a chain instead of protecting only the future handed back from supplyGuarded.
+        @Override
+        public <U> CompletableFuture<U> newIncompleteFuture() {
+            return new GuardedFuture<>(scheduler);
+        }
+
+        private void checkThread(String op) {
             if (scheduler.isMainThread()) {
-                throw new IllegalStateException("Blocking I/O operation (join/get) on the main thread is forbidden.");
+                throw new IllegalStateException("Blocking the main thread on Redis I/O is forbidden (it freezes the server tick). Consume the result asynchronously using thenApply/thenAccept, and hop back to the main thread via the scheduler only when you need to touch game state.");
             }
         }
 
         @Override
         public T join() {
-            checkThread();
+            checkThread("join");
             return super.join();
         }
 
         @Override
         public T get() throws InterruptedException, ExecutionException {
-            checkThread();
+            checkThread("get");
             return super.get();
         }
 
         @Override
         public T get(long timeout, TimeUnit unit) throws InterruptedException, ExecutionException, TimeoutException {
-            checkThread();
+            checkThread("get");
             return super.get(timeout, unit);
         }
     }

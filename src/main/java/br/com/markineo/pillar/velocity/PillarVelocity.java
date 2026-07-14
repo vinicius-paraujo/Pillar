@@ -172,13 +172,14 @@ public final class PillarVelocity {
         logger.info("Pillar initialized as '" + settings.name() + "'.");
 
         this.ioPool = executors.newBoundedWorkerPool("pillar-io", 4, 1000);
+        VelocityScheduler velocityScheduler = new VelocityScheduler();
         MessagingImpl messagingImpl = new MessagingImpl(
-                publisher, requestSender, handlers, new VelocityScheduler(), codec, ioPool, selfId, fleetView, logger
+                publisher, requestSender, handlers, velocityScheduler, codec, ioPool, selfId, fleetView, logger
         );
 
         br.com.markineo.pillar.redis.lease.RedisLeaseService redisLeaseService = new br.com.markineo.pillar.redis.lease.RedisLeaseService(redis);
         br.com.markineo.pillar.redis.lease.LeasesImpl leasesImpl = new br.com.markineo.pillar.redis.lease.LeasesImpl(
-                redisLeaseService, ioPool, new VelocityScheduler(), selfId
+                redisLeaseService, ioPool, velocityScheduler, selfId
         );
 
         PillarFacade facade = new PillarFacade(messagingImpl, leasesImpl);

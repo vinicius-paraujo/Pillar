@@ -7,7 +7,8 @@ import br.com.markineo.pillar.core.placement.HardCaps;
 public record PillarSettings(String name, String role, RedisSettings redis, String language,
                              Duration healthInterval, Duration consumerDedupWindow,
                              int consumerPoolSize, int consumerQueueCapacity,
-                             String entryRole, HardCaps hardCaps) {
+                             String entryRole, HardCaps hardCaps,
+                             String proxyRole) {
 
     public static PillarSettings from(ConfigurationFile config) {
         return new PillarSettings(
@@ -20,7 +21,8 @@ public record PillarSettings(String name, String role, RedisSettings redis, Stri
                 config.getInt("consumer.pool-size", 4),
                 config.getInt("consumer.queue-capacity", 128),
                 null,
-                null);
+                null,
+                config.getString("routing.proxy-role", "proxy"));
     }
 
     public static PillarSettings fromProxy(ConfigurationFile config) {
@@ -38,6 +40,7 @@ public record PillarSettings(String name, String role, RedisSettings redis, Stri
                         config.getInt("routing.hard-caps.max-players", 100),
                         config.getDouble("routing.hard-caps.max-memory-percent", 0.9),
                         config.getDouble("routing.hard-caps.max-mspt", 45.0)
-                ));
+                ),
+                "proxy");
     }
 }

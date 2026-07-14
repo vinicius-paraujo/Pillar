@@ -107,16 +107,21 @@ public final class Pillar extends JavaPlugin {
         logger.info("Pillar enabled as '" + settings.name() + "' (role " + settings.role() + ").");
 
         this.ioPool = executors.newBoundedWorkerPool("pillar-io", 4, 1000);
+        PaperScheduler paperScheduler = new PaperScheduler(this);
         MessagingImpl messagingImpl = new MessagingImpl(
-                publisher, requestSender, handlers, new PaperScheduler(this), codec, ioPool, selfId, fleetView, logger
+                publisher, requestSender, handlers, paperScheduler, codec, ioPool, selfId, fleetView, logger
         );
 
         br.com.markineo.pillar.redis.lease.RedisLeaseService redisLeaseService = new br.com.markineo.pillar.redis.lease.RedisLeaseService(redis);
         br.com.markineo.pillar.redis.lease.LeasesImpl leasesImpl = new br.com.markineo.pillar.redis.lease.LeasesImpl(
-                redisLeaseService, ioPool, new PaperScheduler(this), selfId
+                redisLeaseService, ioPool, paperScheduler, selfId
         );
 
-        PillarFacade facade = new PillarFacade(messagingImpl, leasesImpl);
+        br.com.markineo.pillar.redis.routing.RoutingImpl routingImpl = new br.com.markineo.pillar.redis.routing.RoutingImpl(
+                requestSender, fleetView, codec, paperScheduler, ioPool, selfId, settings.proxyRole()
+        );
+
+        PillarFacade facade = new PillarFacade(messagingImpl, leasesImpl, routingImpl);
         PillarProvider.register(facade);
     }
 
