@@ -6,6 +6,7 @@
 **The control plane for Minecraft networks.** Presence, messaging, and health-aware
 placement for a fleet of servers.
 
+
 <!-- TODO: wire real badges once CI/releases exist. -->
 ![Java](https://img.shields.io/badge/Java-25-orange)
 ![License](https://img.shields.io/badge/License-Apache--2.0-blue)
