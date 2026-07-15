@@ -29,17 +29,21 @@ flowchart TB
     DP["Your game plugins"] -.consume.-> CP
 ```
 
+## Documentation
+
+The complete documentation for Pillar, including installation guides, API references, architecture overviews, and developer cookbooks, is available at **[pillar.markineo.com.br](https://pillar.markineo.com.br)**.
+
 ## Features
 
-| | |
-|---|---|
-| **Fleet presence** | Nodes advertise with an expiring heartbeat; dead nodes disappear without cleanup. |
-| **Stream transport** | Durable, at-least-once messaging over Redis Streams with consumer groups. |
-| **Request/response** | Correlated messaging with a `CompletableFuture` reply and configurable timeout. |
-| **Health snapshots** | Nodes publish MSPT, memory, and player count for fleet-wide visibility. |
-| **Placement engine** | Power-of-two-choices selection with hard caps and in-flight reservations. |
+| Feature                | Description                                                                                |
+|------------------------|--------------------------------------------------------------------------------------------|
+| **Fleet presence**     | Nodes advertise with an expiring heartbeat; dead nodes disappear without cleanup.          |
+| **Stream transport**   | Durable, at-least-once messaging over Redis Streams with consumer groups.                  |
+| **Request/response**   | Correlated messaging with a `CompletableFuture` reply and configurable timeout.            |
+| **Health snapshots**   | Nodes publish MSPT, memory, and player count for fleet-wide visibility.                    |
+| **Placement engine**   | Power-of-two-choices selection with hard caps and in-flight reservations.                  |
 | **Resilient dispatch** | Bounded worker pool, acknowledge-after-success, deduplication, and stranded-work recovery. |
-| **Admin commands** | Inspect fleet state, connection health, and node latency at runtime. |
+| **Admin commands**     | Inspect fleet state, connection health, and node latency at runtime.                       |
 
 ## Getting started
 
@@ -101,7 +105,7 @@ A local topology (proxy, two Paper nodes, Redis) is available in `test-topology/
 
 ## Contributing
 
-See the [contribution guide](https://pillar.markineo.com/contributing/guidelines) for coding standards, environment setup, and the PR flow.
+See the [contribution guide](https://pillar.markineo.com.br/contributing/guidelines) for coding standards, environment setup, and the PR flow.
 
 ## License
 
