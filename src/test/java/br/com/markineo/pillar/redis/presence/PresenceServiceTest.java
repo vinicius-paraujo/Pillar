@@ -99,7 +99,9 @@ class PresenceServiceTest {
     void testAuthoritativeEmptyReadIsAdopted() throws InterruptedException {
         // If the fleet is empty but Redis is up, we should adopt it immediately and not treat it as a failure
         stubFleet = Optional.of(FleetSnapshot.empty());
-        Thread.sleep(100);
+        // 300ms = 6× the tick interval; gives ample headroom for the scheduler under full-suite load,
+        // while staying well inside the 500ms staleness window that would otherwise clear lastGoodRead.
+        Thread.sleep(300);
         
         assertEquals(0, presence.cachedFleet().members().size(), "Fleet should be empty");
         assertFalse(presence.isStale(), "An authoritative empty read is a GOOD read, so it should not be stale");

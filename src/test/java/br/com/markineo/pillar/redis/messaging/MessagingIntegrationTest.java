@@ -14,6 +14,9 @@ import br.com.markineo.pillar.redis.transport.StreamConsumer;
 import br.com.markineo.pillar.redis.transport.StreamPublisher;
 import com.google.gson.Gson;
 import org.junit.jupiter.api.Test;
+import br.com.markineo.pillar.core.identity.ServerIdentity;
+import br.com.markineo.pillar.core.identity.ServerRole;
+import br.com.markineo.pillar.redis.presence.HeartbeatPublisher;
 
 import java.time.Duration;
 import java.util.concurrent.CompletableFuture;
@@ -78,6 +81,9 @@ class MessagingIntegrationTest extends RedisIntegrationTest {
             await("beta consumer group was never created", () -> groupExists(beta));
             await("alpha consumer group was never created", () -> groupExists(alpha));
 
+            new HeartbeatPublisher(connector, new ServerIdentity(alpha, new ServerRole("test"))).publish();
+            new HeartbeatPublisher(connector, new ServerIdentity(beta, new ServerRole("test"))).publish();
+
             messagingBeta.handle(REQ_TYPE, RES_TYPE, (payload, ctx) -> {
                 assertEquals("hello", payload.data());
                 return new TestResponse("world");
@@ -129,6 +135,9 @@ class MessagingIntegrationTest extends RedisIntegrationTest {
         try {
             await("beta consumer group was never created", () -> groupExists(beta));
             await("alpha consumer group was never created", () -> groupExists(alpha));
+
+            new HeartbeatPublisher(connector, new ServerIdentity(alpha, new ServerRole("test"))).publish();
+            new HeartbeatPublisher(connector, new ServerIdentity(beta, new ServerRole("test"))).publish();
 
             CountDownLatch latch = new CountDownLatch(1);
             AtomicReference<TestRequest> received = new AtomicReference<>();

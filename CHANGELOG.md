@@ -9,6 +9,15 @@ minor release.
 
 ## [Unreleased]
 
+### Added
+- **Public API Root** — Introduced `PillarProvider` as the static entry point for consumer plugins, exposing the `Pillar` interface for interacting with the control-plane.
+- **Messaging API** — `pillar.messaging()` provides a high-level `CompletableFuture` API for cross-server communication: `listen`, `send`, `request`/`handle`, and `broadcast`.
+- **Type-safe Payloads** — Introduced `PillarMessage<T>` for strong type binding of message identifiers to their record-based payloads. Mandatory namespace validation (`plugin:name`).
+- **Leases API** — `pillar.leases()` exposes distributed mutual exclusion primitives (`LeaseService`) to public consumers, enabling cross-server state sync and island-lease mechanisms.
+- **Routing API** — `pillar.routing()` exposes the `move(player, role)` and `moveToServer` APIs for proxy-actuated player routing.
+- **Level-2 Defense** — Introduced `PillarFutures` anti-join guard to aggressively prevent consumers from blocking the main server thread, failing fast with clear error messages.
+- **Architecture Boundaries** — ArchUnit tests now enforce that consumers depend only on the `pillar-api` surface and never leak internal transport or core classes.
+
 ## [0.4.0] — 2026-07-13
 
 Fourth release: production hardening and resilience. Transforms the system from a functioning MVP into a fault-tolerant mesh that degrades gracefully under fire.

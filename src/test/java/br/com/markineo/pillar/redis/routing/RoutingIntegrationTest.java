@@ -15,6 +15,7 @@ import br.com.markineo.pillar.core.task.EnvelopeCodec;
 import br.com.markineo.pillar.core.task.EnvelopeHandler;
 import br.com.markineo.pillar.core.task.HandlerRegistry;
 import br.com.markineo.pillar.core.task.MessageType;
+import br.com.markineo.pillar.core.task.PillarMessageTypes;
 import br.com.markineo.pillar.logger.PillarLogger;
 import br.com.markineo.pillar.redis.RedisIntegrationTest;
 import br.com.markineo.pillar.redis.transport.JsonEnvelopeCodec;
@@ -82,7 +83,7 @@ class RoutingIntegrationTest extends RedisIntegrationTest {
         StreamPublisher proxyPublisher = new StreamPublisher(connector, codec);
         
         proxyHandlers.register(new EnvelopeHandler() {
-            @Override public MessageType type() { return new MessageType("ROUTE_PLAYER"); }
+            @Override public MessageType type() { return PillarMessageTypes.ROUTE_PLAYER; }
             @Override public void handle(Envelope envelope, EnvelopeCodec c) {
                 // If the outcome is configured to be timeout, we just don't reply.
                 if (mockOutcome.get() != null) {

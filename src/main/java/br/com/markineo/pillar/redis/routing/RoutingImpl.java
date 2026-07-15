@@ -11,6 +11,7 @@ import br.com.markineo.pillar.core.placement.RoutePlayerResponse;
 import br.com.markineo.pillar.core.task.Envelope;
 import br.com.markineo.pillar.core.task.EnvelopeCodec;
 import br.com.markineo.pillar.core.task.MessageType;
+import br.com.markineo.pillar.core.task.PillarMessageTypes;
 import br.com.markineo.pillar.redis.presence.FleetView;
 import br.com.markineo.pillar.redis.transport.RequestSender;
 
@@ -68,7 +69,7 @@ public class RoutingImpl implements Routing {
 
             try {
                 String json = codec.encodePayload(request);
-                Envelope requestEnv = Envelope.request(new MessageType("ROUTE_PLAYER"), selfId, json);
+                Envelope requestEnv = Envelope.request(PillarMessageTypes.ROUTE_PLAYER, selfId, json);
                 
                 requestSender.send(proxyId, requestEnv).whenComplete((responseEnv, ex) -> {
                     if (ex != null) {

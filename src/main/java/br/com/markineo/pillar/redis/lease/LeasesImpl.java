@@ -62,12 +62,20 @@ public class LeasesImpl implements Leases {
         Objects.requireNonNull(lease, "lease");
         validateTtl(ttl);
 
+        if (!lease.owner().equals(createOwnerToken())) {
+            return CompletableFuture.completedFuture(false);
+        }
+
         return PillarFutures.supplyGuarded(() -> delegate.renew(lease, ttl), ioPool, scheduler);
     }
 
     @Override
     public CompletableFuture<Boolean> release(Lease lease) {
         Objects.requireNonNull(lease, "lease");
+
+        if (!lease.owner().equals(createOwnerToken())) {
+            return CompletableFuture.completedFuture(false);
+        }
 
         return PillarFutures.supplyGuarded(() -> delegate.release(lease), ioPool, scheduler);
     }

@@ -27,6 +27,9 @@ import java.util.concurrent.CompletableFuture;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import br.com.markineo.pillar.redis.RedisKeys;
+import redis.clients.jedis.Jedis;
+
 class TaskRoutingCompositionIntegrationTest extends RedisIntegrationTest {
 
     private static final MessageType CREATE_ISLAND = new MessageType("minigame.create_island");
@@ -54,6 +57,19 @@ class TaskRoutingCompositionIntegrationTest extends RedisIntegrationTest {
         proxyNode.consumer.start();
         hubNode.consumer.start();
         minigameNode.consumer.start();
+
+        await("proxy group", () -> groupExists(proxyNode.id));
+        await("hub group", () -> groupExists(hubNode.id));
+        await("minigame group", () -> groupExists(minigameNode.id));
+    }
+
+    private boolean groupExists(ServerId node) {
+        try (Jedis jedis = connector.getResource()) {
+            return jedis.xinfoGroups(RedisKeys.inbox(node)).stream()
+                    .anyMatch(group -> "pillar".equals(group.getName()));
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     @AfterEach

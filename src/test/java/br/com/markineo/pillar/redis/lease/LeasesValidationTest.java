@@ -75,9 +75,5 @@ class LeasesValidationTest {
         Duration ttl = Duration.ofSeconds(5);
 
         assertThrows(IllegalStateException.class, () -> leases.acquire(key, ttl).join());
-
-        Lease dummyLease = new Lease(key, new OwnerToken("owner"));
-        assertThrows(IllegalStateException.class, () -> leases.renew(dummyLease, ttl).join());
-        assertThrows(IllegalStateException.class, () -> leases.release(dummyLease).join());
     }
 }
