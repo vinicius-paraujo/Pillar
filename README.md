@@ -1,4 +1,11 @@
-# Pillar
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="../web/pillar-docs/src/assets/pillar-wordmark-dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset="../web/pillar-docs/src/assets/pillar-wordmark-light.svg">
+    <img alt="Pillar" src="../web/pillar-docs/src/assets/pillar-wordmark-dark.svg" width="350">
+  </picture>
+</p>
+
 
 **The control plane for Minecraft networks.** Presence, messaging, and health-aware
 placement for a fleet of servers.
@@ -7,7 +14,7 @@ placement for a fleet of servers.
 ![Java](https://img.shields.io/badge/Java-25-orange)
 ![License](https://img.shields.io/badge/License-Apache--2.0-blue)
 ![Status](https://img.shields.io/badge/status-pre--release-yellow)
-![Discord]()
+![Discord](https://img.shields.io/discord/:1526553879838331041)
 
 > Pillar gives a multi-server network a shared nervous system: every node knows who else
 > is alive, can send a message and get an answer, and can decide where new work should
