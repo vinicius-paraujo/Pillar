@@ -41,22 +41,6 @@ flowchart TB
 | **Resilient dispatch** | Bounded worker pool, acknowledge-after-success, deduplication, and stranded-work recovery. |
 | **Admin commands** | Inspect fleet state, connection health, and node latency at runtime. |
 
-## Architecture
-
-```
-br.com.markineo.pillar
-├── core        Pure Java: identity, fleet, task envelope, placement (no Jedis, no platform API)
-├── error       Unchecked exception hierarchy (PillarException)
-├── logger      SLF4J wrapper with a diagnostics ring buffer
-├── concurrent  Named executors and the platform-scheduler seam
-├── config      YAML loading, typed settings, language catalogs
-├── redis       The only package that imports Jedis: connection, presence, transport
-├── paper       Paper adapter: entry point, commands, main-thread scheduler
-└── velocity    Velocity adapter: entry point, command, scheduler
-```
-
-`core` stays pure. Only `redis` touches Jedis. Platform adapters stay thin. That boundary keeps placement and transport logic unit-testable without a running server.
-
 ## Getting started
 
 **Prerequisites:** Redis, a Velocity proxy, and one or more Paper servers on Java 25.
