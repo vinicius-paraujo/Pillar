@@ -28,6 +28,6 @@ final class PillarFacade implements Pillar {
 
     @Override
     public Routing routing() {
-        throw new UnsupportedOperationException("routing().move é uma operação de data-plane; chame de um servidor backend, ou use a API nativa do Velocity no proxy");
+        throw new UnsupportedOperationException("routing().move is a data-plane operation; call it from a backend server, or use Velocity's native API on the proxy");
     }
 }

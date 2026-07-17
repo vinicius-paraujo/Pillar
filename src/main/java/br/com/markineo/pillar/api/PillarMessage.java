@@ -5,8 +5,9 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Represents a typed message definition for the Pillar network.
- * Binds a unique wire identifier to a specific record payload.
+ * Binds a wire identifier to a record payload type. Every message sent or handled
+ * through {@link Messaging} is declared as a {@code PillarMessage} first, once, and
+ * reused; the same instance is what both sides register against.
  *
  * @param <T> the payload record type
  */
@@ -23,12 +24,18 @@ public final class PillarMessage<T extends Record> {
     }
 
     /**
-     * Creates and registers a new message definition.
-     * 
-     * @param id the namespaced identifier (e.g., "plugin:my_message")
-     * @param payloadClass the Java record class representing the payload
+     * Declares a message. Calling this twice with the same {@code id} and the same
+     * {@code payloadClass} returns the existing definition instead of failing.
+     *
+     * @param id the namespaced identifier (e.g., {@code "plugin:my_message"})
+     * @param payloadClass the record class carried as the payload
+     * @param <T> the payload record type
      * @return the message definition
-     * @throws IllegalArgumentException if the identifier is invalid, duplicated, or if the payload is not a valid serializable record.
+     * @throws IllegalArgumentException if the identifier is invalid or already
+     *     registered with a different payload class, or if a record component's type
+     *     is not one of: a primitive, a numeric wrapper, {@code Boolean}, {@code
+     *     Character}, {@code String}, {@code UUID}, another record built from these
+     *     same types, or a {@code List} of one of these types
      */
     @SuppressWarnings("unchecked")
     public static <T extends Record> PillarMessage<T> of(String id, Class<T> payloadClass) {
@@ -57,6 +64,8 @@ public final class PillarMessage<T extends Record> {
     }
 
     /**
+     * The namespaced wire identifier this message was declared with.
+     *
      * @return the wire identifier
      */
     public String id() {
@@ -64,6 +73,8 @@ public final class PillarMessage<T extends Record> {
     }
 
     /**
+     * The record class this message's payload is declared as.
+     *
      * @return the record payload class
      */
     public Class<T> payloadClass() {

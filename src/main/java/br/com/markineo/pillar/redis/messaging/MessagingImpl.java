@@ -13,8 +13,9 @@ import br.com.markineo.pillar.core.task.EnvelopeCodec;
 import br.com.markineo.pillar.core.task.EnvelopeHandler;
 import br.com.markineo.pillar.core.task.HandlerRegistry;
 import br.com.markineo.pillar.core.task.MessageType;
+import br.com.markineo.pillar.error.PillarException;
 import br.com.markineo.pillar.logger.PillarLogger;
-import br.com.markineo.pillar.redis.presence.FleetView;
+import br.com.markineo.pillar.redis.presence.PresenceService;
 import br.com.markineo.pillar.redis.transport.RequestSender;
 import br.com.markineo.pillar.redis.transport.StreamPublisher;
 
@@ -30,7 +31,7 @@ public class MessagingImpl implements Messaging {
     private final EnvelopeCodec codec;
     private final ExecutorService workerPool;
     private final ServerId selfId;
-    private final FleetView fleetView;
+    private final PresenceService presence;
     private final PillarLogger logger;
 
     public MessagingImpl(
@@ -41,7 +42,7 @@ public class MessagingImpl implements Messaging {
             EnvelopeCodec codec,
             ExecutorService workerPool,
             ServerId selfId,
-            FleetView fleetView,
+            PresenceService presence,
             PillarLogger logger
     ) {
         this.publisher = publisher;
@@ -51,12 +52,13 @@ public class MessagingImpl implements Messaging {
         this.codec = codec;
         this.workerPool = workerPool;
         this.selfId = selfId;
-        this.fleetView = fleetView;
+        this.presence = presence;
         this.logger = logger;
     }
 
     @Override
     public <T extends Record> CompletableFuture<Void> send(PillarMessage<T> message, T payload, String targetServerId) {
+        java.util.Objects.requireNonNull(message, "type");
         validateTarget(targetServerId);
         String json = codec.encodePayload(payload);
         return br.com.markineo.pillar.concurrent.PillarFutures.runGuarded(() -> {
@@ -66,20 +68,26 @@ public class MessagingImpl implements Messaging {
 
     @Override
     public <T extends Record> CompletableFuture<Void> broadcast(PillarMessage<T> message, T payload) {
+        java.util.Objects.requireNonNull(message, "type");
         String json = codec.encodePayload(payload);
         return br.com.markineo.pillar.concurrent.PillarFutures.runGuarded(() -> {
-            fleetView.snapshot().ifPresent(snapshot -> {
-                for (ServerIdentity identity : snapshot.members()) {
-                    if (!identity.id().equals(selfId)) {
-                        publisher.publish(identity.id(), Envelope.oneWay(new MessageType(message.id()), selfId, json));
-                    }
+            if (presence.isStale()) {
+                throw new PillarException(
+                        "Cannot broadcast: no fleet read has succeeded within the staleness window, "
+                                + "so the target set is unknown. Nothing was published.");
+            }
+            for (ServerIdentity identity : presence.cachedFleet().members()) {
+                if (!identity.id().equals(selfId)) {
+                    publisher.publish(identity.id(), Envelope.oneWay(new MessageType(message.id()), selfId, json));
                 }
-            });
+            }
         }, workerPool, scheduler);
     }
 
     @Override
     public <T extends Record, R extends Record> CompletableFuture<R> request(PillarMessage<T> requestType, T payload, PillarMessage<R> responseType, String targetServerId) {
+        java.util.Objects.requireNonNull(requestType, "requestType");
+        java.util.Objects.requireNonNull(responseType, "responseType");
         validateTarget(targetServerId);
         String json = codec.encodePayload(payload);
         CompletableFuture<R> result = br.com.markineo.pillar.concurrent.PillarFutures.create(scheduler);
@@ -150,7 +158,6 @@ public class MessagingImpl implements Messaging {
                     });
                 } catch (Exception e) {
                     logger.error("Uncaught exception in request handler for " + requestType.id(), e);
-                    // TODO(PIL-82): Limitação conhecida: publicar resposta de erro para que o solicitante não sofra timeout silencioso
                 }
             }
         });
@@ -160,13 +167,12 @@ public class MessagingImpl implements Messaging {
         if (targetServerId == null || targetServerId.isBlank()) {
             throw new IllegalArgumentException("Target server ID cannot be null or blank");
         }
-        ServerId targetId = new ServerId(targetServerId);
-        fleetView.snapshot().ifPresent(snapshot -> {
-            boolean exists = snapshot.members().stream().anyMatch(m -> m.id().equals(targetId));
-            if (!exists) {
-                throw new IllegalArgumentException("Target server '" + targetServerId + "' is not present in the fleet");
-            }
-        });
+        if (presence.isStale()) {
+            return;
+        }
+        if (!presence.cachedFleet().contains(new ServerId(targetServerId))) {
+            throw new IllegalArgumentException("Target server '" + targetServerId + "' is not present in the fleet");
+        }
     }
 
     private static class EnvelopeMessageContext implements MessageContext {

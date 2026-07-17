@@ -109,7 +109,7 @@ public final class Pillar extends JavaPlugin {
         this.ioPool = executors.newBoundedWorkerPool("pillar-io", 4, 1000);
         PaperScheduler paperScheduler = new PaperScheduler(this);
         MessagingImpl messagingImpl = new MessagingImpl(
-                publisher, requestSender, handlers, paperScheduler, codec, ioPool, selfId, fleetView, logger
+                publisher, requestSender, handlers, paperScheduler, codec, ioPool, selfId, presence, logger
         );
 
         br.com.markineo.pillar.redis.lease.RedisLeaseService redisLeaseService = new br.com.markineo.pillar.redis.lease.RedisLeaseService(redis);
@@ -118,7 +118,7 @@ public final class Pillar extends JavaPlugin {
         );
 
         br.com.markineo.pillar.redis.routing.RoutingImpl routingImpl = new br.com.markineo.pillar.redis.routing.RoutingImpl(
-                requestSender, fleetView, codec, paperScheduler, ioPool, selfId, settings.proxyRole()
+                requestSender, presence, codec, paperScheduler, ioPool, selfId, settings.proxyRole(), logger
         );
 
         PillarFacade facade = new PillarFacade(messagingImpl, leasesImpl, routingImpl);

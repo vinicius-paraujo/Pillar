@@ -30,7 +30,7 @@ class RoutingValidationTest {
             @Override public boolean isMainThread() { return true; }
         };
         
-        routing = new RoutingImpl(null, null, null, mainThreadScheduler, pool, new ServerId("test-server"), "proxy");
+        routing = new RoutingImpl(null, null, null, mainThreadScheduler, pool, new ServerId("test-server"), "proxy", null);
     }
 
     @AfterEach

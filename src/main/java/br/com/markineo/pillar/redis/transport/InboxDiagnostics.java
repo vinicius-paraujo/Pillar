@@ -14,9 +14,6 @@ public final class InboxDiagnostics {
         this.connector = connector;
     }
 
-    // Entries delivered to this node's consumer but not yet acked Ã¢â‚¬â€ a handler or ack failure
-    // leaves them here, invisible until PIL-40 recovery. Zero when Redis is unreachable, which
-    // the caller distinguishes from a healthy zero by also reading the connection state.
     public long pendingEntries(ServerId self) {
         return connector.withResource(jedis -> {
             StreamPendingSummary summary =

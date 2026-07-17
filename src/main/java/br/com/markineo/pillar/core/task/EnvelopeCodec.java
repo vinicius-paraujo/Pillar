@@ -1,5 +1,7 @@
 package br.com.markineo.pillar.core.task;
 
+import br.com.markineo.pillar.error.PillarException;
+
 // Swapping to a binary codec only requires a new implementation and a wiring change.
 public interface EnvelopeCodec {
 

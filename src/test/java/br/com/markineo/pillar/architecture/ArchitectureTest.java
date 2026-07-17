@@ -11,9 +11,6 @@ import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
 @AnalyzeClasses(packages = "br.com.markineo.pillar", importOptions = ImportOption.DoNotIncludeTests.class)
 public class ArchitectureTest {
 
-    // UNIVERSAL LAYERS: logger, error, concurrent (and JDK/slf4j) are allowed everywhere.
-    // So we don't explicitly restrict who can depend on them.
-
     @ArchTest
     static final ArchRule coreIsPure = noClasses()
             .that().resideInAPackage("..core..")
@@ -66,8 +63,6 @@ public class ArchitectureTest {
             .should().dependOnClassesThat().resideInAPackage("..paper..")
             .allowEmptyShould(true);
 
-    // PIL-51 explicit consumer rule: The API surface should not expose internal implementation details.
-    // The classes in `api` should not expose (in their public/protected signatures) types from `redis` or `core.task`.
     @ArchTest
     static final ArchRule apiDoesNotExposeInternals = noClasses()
             .that().resideInAPackage("..api..")

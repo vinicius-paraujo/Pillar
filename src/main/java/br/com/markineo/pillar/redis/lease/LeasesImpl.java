@@ -29,9 +29,6 @@ public class LeasesImpl implements Leases {
         this.ioPool = ioPool;
         this.scheduler = scheduler;
         this.selfId = selfId;
-        // Why a session suffix? It provides implicit fencing (ADR-0008). 
-        // If this node crashes and restarts, it comes back with a new session suffix.
-        // Any lingering renewals from the old process will fail owner checks.
         this.sessionSuffix = UUID.randomUUID().toString().substring(0, 8);
     }
 
@@ -63,7 +60,7 @@ public class LeasesImpl implements Leases {
         validateTtl(ttl);
 
         if (!lease.owner().equals(createOwnerToken())) {
-            return CompletableFuture.completedFuture(false);
+            return PillarFutures.supplyGuarded(() -> false, ioPool, scheduler);
         }
 
         return PillarFutures.supplyGuarded(() -> delegate.renew(lease, ttl), ioPool, scheduler);
@@ -74,7 +71,7 @@ public class LeasesImpl implements Leases {
         Objects.requireNonNull(lease, "lease");
 
         if (!lease.owner().equals(createOwnerToken())) {
-            return CompletableFuture.completedFuture(false);
+            return PillarFutures.supplyGuarded(() -> false, ioPool, scheduler);
         }
 
         return PillarFutures.supplyGuarded(() -> delegate.release(lease), ioPool, scheduler);

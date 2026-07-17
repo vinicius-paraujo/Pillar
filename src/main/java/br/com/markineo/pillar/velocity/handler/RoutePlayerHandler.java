@@ -138,7 +138,7 @@ public final class RoutePlayerHandler implements EnvelopeHandler {
         }
         
         try {
-            String payload = gson.toJson(new RoutePlayerResponse(outcome));
+            String payload = gson.toJson(RoutePlayerResponse.of(outcome));
             Envelope response = Envelope.response(requestEnvelope.type(), requestEnvelope.correlationId().get(), selfId, payload);
             publisher.publish(requestEnvelope.senderId(), response);
         } catch (PillarException e) {

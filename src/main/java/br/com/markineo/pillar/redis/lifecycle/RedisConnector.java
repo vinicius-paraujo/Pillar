@@ -59,7 +59,7 @@ public class RedisConnector implements AutoCloseable {
     // A control plane holds several connections at once: the blocking XREADGROUP pins
     // one for up to the block window, the PEL drain another, plus heartbeat, health, and
     // command paths (placement reads join them in Iteration 3). The pool defaults are a
-    // trap here Ã¢â‚¬â€  maxTotal 8 starves under a login storm, and maxWait -1 then blocks
+    // trap here — maxTotal 8 starves under a login storm, and maxWait -1 then blocks
     // callers forever instead of failing fast into the degraded state the health loop
     // already handles. Size both explicitly; maxIdle tracks maxTotal so bursts don't
     // churn connections through the evictor.

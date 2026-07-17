@@ -90,7 +90,7 @@ class TaskRoutingCompositionIntegrationTest extends RedisIntegrationTest {
             public void handle(Envelope envelope, EnvelopeCodec codec) {
                 if (envelope.correlationId().isPresent()) {
                     // Simulate that the proxy successfully moved the player
-                    String replyPayload = gson.toJson(new RoutePlayerResponse(RouteOutcome.SUCCESS));
+                    String replyPayload = gson.toJson(RoutePlayerResponse.of(RouteOutcome.SUCCESS));
                     Envelope response = Envelope.response(PillarMessageTypes.ROUTE_PLAYER, envelope.correlationId().get(), proxyNode.id, replyPayload);
                     proxyNode.publisher.publish(envelope.senderId(), response);
                 }
@@ -131,7 +131,7 @@ class TaskRoutingCompositionIntegrationTest extends RedisIntegrationTest {
             return hubNode.requestSender.send(proxyNode.id, routeReq, Duration.ofSeconds(5))
                     .thenApply(responseEnv -> {
                         RoutePlayerResponse rpRes = gson.fromJson(responseEnv.payload(), RoutePlayerResponse.class);
-                        return rpRes.outcome();
+                        return RouteOutcome.byName(rpRes.outcome()).orElseThrow();
                     });
         });
 
