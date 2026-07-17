@@ -5,7 +5,7 @@
 # |____|   |__|____/____(____  /__|
 # \/
 name: Pillar
-version: '0.5.0'
+version: '0.6.0'
 main: br.com.markineo.pillar.paper.Pillar
 api-version: '26.1'
 author: Markineo

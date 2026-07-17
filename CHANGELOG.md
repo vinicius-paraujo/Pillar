@@ -9,6 +9,10 @@ minor release.
 
 ## [Unreleased]
 
+## [0.5.0] — 2026-07-17
+
+Fifth release: The Messaging API & Javadoc Consolidation. Extracts the internal core capabilities into a stable, public-facing API surface.
+
 ### Added
 - **Public API Root** — Introduced `PillarProvider` as the static entry point for consumer plugins, exposing the `Pillar` interface for interacting with the control-plane.
 - **Messaging API** — `pillar.messaging()` provides a high-level `CompletableFuture` API for cross-server communication: `listen`, `send`, `request`/`handle`, and `broadcast`.
@@ -116,7 +120,9 @@ messages over Redis. **Pre-release** — for validation, not production.
 - Extracted `lang/` files are not overwritten on update; a stale file can shadow keys
   added in a newer version (PIL-18).
 
-[Unreleased]: https://example.com/pillar/compare/v0.3.0...HEAD
+[Unreleased]: https://example.com/pillar/compare/v0.5.0...HEAD
+[0.5.0]: https://example.com/pillar/compare/v0.4.0...v0.5.0
+[0.4.0]: https://example.com/pillar/compare/v0.3.0...v0.4.0
 [0.3.0]: https://example.com/pillar/compare/v0.2.0...v0.3.0
 [0.2.0]: https://example.com/pillar/compare/v0.1.0...v0.2.0
 [0.1.0]: https://example.com/pillar/releases/tag/v0.1.0
