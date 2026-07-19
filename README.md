@@ -43,16 +43,18 @@ The complete documentation for Pillar, including installation guides, API refere
 | **Health snapshots**   | Nodes publish MSPT, memory, and player count for fleet-wide visibility.                    |
 | **Placement engine**   | Power-of-two-choices selection with hard caps and in-flight reservations.                  |
 | **Resilient dispatch** | Bounded worker pool, acknowledge-after-success, deduplication, and stranded-work recovery. |
+| **Distributed leases** | Mutual exclusion primitives over Redis to coordinate network-wide exclusive tasks.         |
 | **Admin commands**     | Inspect fleet state, connection health, and node latency at runtime.                       |
 
 ## Getting started
 
 **Prerequisites:** Redis, a Velocity proxy, and one or more Paper servers on Java 25.
 
-1. Download `Pillar-<version>.jar` from [Releases](#).
-2. Place it in `plugins/` on the Velocity proxy and each Paper server.
-3. Configure each node to point at your Redis instance.
-4. Start the network and run `/pillar fleet` to verify all nodes are visible.
+Compiled binaries are available in the [Releases](https://github.com/markineo/Pillar/releases) tab.
+
+For comprehensive instructions on how to install, configure, and use the plugin, refer to the [Installation Guide](https://pillar.markineo.com.br/user/installation/).
+
+If you are developing a plugin that consumes Pillar's API, depend on the `pillar-api` artifact published on Maven Central.
 
 ### Configuration
 
@@ -100,8 +102,13 @@ A local topology (proxy, two Paper nodes, Redis) is available in `test-topology/
 
 - [x] Fleet presence, stream transport, correlated request/response, diagnostics.
 - [x] Health snapshots, placement engine, resilient dispatch.
-- [ ] Player routing and lease primitive (MVP completion).
-- [ ] Hardening: dead-consumer recovery, degraded-mode behavior, telemetry, stable public API.
+- [x] Player routing and lease primitive.
+- [x] Hardening: dead-consumer recovery, degraded-mode behavior, telemetry.
+- [x] Stable public API (pillar-api) and public documentation site.
+- [ ] Weighted tick-aware selector (operator opt-in).
+- [ ] Envelope signing / sender allowlisting for multi-tenant deployments.
+- [ ] Region as a fleet attribute (placement affinity).
+- [ ] Multi-proxy support (high-availability topologies).
 
 ## Contributing
 

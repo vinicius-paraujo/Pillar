@@ -9,6 +9,19 @@ minor release.
 
 ## [Unreleased]
 
+## [0.6.0] — 2026-07-19
+
+Sixth release: Documentation, Module Split, and Maven Central. Completes the public documentation and prepares the codebase for community adoption by strictly separating the API contracts from the implementation.
+
+### Added
+- **Public Documentation** — Extensive documentation site launched at [pillar.markineo.com.br](https://pillar.markineo.com.br), featuring architecture overviews, developer cookbooks, and a getting started guide.
+- **Internationalization (i18n)** — Full documentation support for English (EN), Spanish (ES), and Brazilian Portuguese (PT-BR), heavily audited for native software engineering taxonomy.
+- **Maven Central Publication** — The `pillar-api` artifact is now published to Maven Central, allowing consumers to securely depend on the API contracts.
+
+### Changed
+- **Module Split** — Hard architectural boundary enforced via Gradle: `pillar-api` contains pure API contracts with no external dependencies, while `pillar-plugin` houses implementations, shading, and platform adapters.
+- **Lease API Minimization** — Reduced the surface area of `LeaseService` by removing `OwnerToken` exposures, relying entirely on atomic Redis script fencing to guarantee safety.
+
 ## [0.5.0] — 2026-07-17
 
 Fifth release: The Messaging API & Javadoc Consolidation. Extracts the internal core capabilities into a stable, public-facing API surface.
@@ -120,7 +133,8 @@ messages over Redis. **Pre-release** — for validation, not production.
 - Extracted `lang/` files are not overwritten on update; a stale file can shadow keys
   added in a newer version (PIL-18).
 
-[Unreleased]: https://example.com/pillar/compare/v0.5.0...HEAD
+[Unreleased]: https://example.com/pillar/compare/v0.6.0...HEAD
+[0.6.0]: https://example.com/pillar/compare/v0.5.0...v0.6.0
 [0.5.0]: https://example.com/pillar/compare/v0.4.0...v0.5.0
 [0.4.0]: https://example.com/pillar/compare/v0.3.0...v0.4.0
 [0.3.0]: https://example.com/pillar/compare/v0.2.0...v0.3.0
