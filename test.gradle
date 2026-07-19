@@ -1,0 +1,34 @@
+
+plugins {
+    id 'maven-publish'
+}
+publishing {
+    repositories {
+        maven {
+            name = 'mavenCentral'
+            url = 'file://C:\\path with spaces\\repo'
+        }
+    }
+    publications {
+        maven(MavenPublication) {
+            groupId = 'test'
+            artifactId = 'test'
+            version = '1.0'
+        }
+    }
+}
+
+tasks.withType(PublishToMavenRepository).configureEach { task ->
+    task.doFirst {
+        def repo = task.repository
+        if (repo != null && repo.name == 'mavenCentral') {
+            def oldUrl = repo.url.toString()
+            if (oldUrl.startsWith('file://') && oldUrl.contains('\\\\')) {
+                def path = oldUrl.replace('file://', '')
+                repo.url = project.file(path).toURI()
+                println 'Fixed URL: ' + repo.url
+            }
+        }
+    }
+}
+

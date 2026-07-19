@@ -1,4 +1,5 @@
 proxy:
+  # The unique identity of this proxy node across the fleet.
   name: "proxy-1"
 
 redis:
@@ -7,17 +8,22 @@ redis:
   password: ""
   pool:
     # Concurrent connections the proxy may hold. The proxy fans placement reads across
-    # the fleet under login bursts, so it is the most exhaustion-prone node — size up here.
+    # the fleet under login bursts, so it is the most exhaustion-prone node, size up here.
     max-total: 16
     # Milliseconds a caller waits for a connection before failing into degraded mode
     # instead of blocking forever under exhaustion.
     max-wait-millis: 2000
 
+# Available: en-us, pt-br
 language: "en-us"
 
 routing:
+  # The target category for newly connected players.
+  # If left empty, Pillar will not intercept inbound routing.
   entry-role: "hub"
   hard-caps:
+    # Absolute health limits. If a server exceeds any of these thresholds,
+    # it is temporarily removed from the eligible routing pool.
     max-players: 100
     max-memory-percent: 0.9
     max-mspt: 45.0

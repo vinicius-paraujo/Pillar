@@ -1,6 +1,9 @@
 server:
+  # The unique identity of this node across the fleet.
+  # Duplicate names will cause unpredictable routing behavior.
   name: "skyblock-1"
-  # skyblock, hub, minigame, ...
+  # The functional category of this node (e.g. hub, skyblock, minigame).
+  # Used by the routing engine to distribute inbound connections.
   role: "skyblock"
 
 redis:
@@ -15,5 +18,5 @@ redis:
     # instead of blocking forever under exhaustion.
     max-wait-millis: 2000
 
-# avaliable: en-us, pt-br
+# Available: en-us, pt-br
 language: "en-us"

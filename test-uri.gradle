@@ -1,0 +1,5 @@
+def badUri = 'file://D:\\Trabalho\\projetos em java\\Pillar\\Pillar\\build/publish/staging/f85bbbfe-7b14-4840-bb9d-670cb72ff611'
+def path = badUri.replace('file://', '')
+def goodUri = file(path).toURI()
+println 'Old: ' + badUri
+println 'New: ' + goodUri
