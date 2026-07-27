@@ -2,11 +2,6 @@
 
 All notable changes to Pillar are documented here.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-While the version is `0.y.z`, the public surface is unstable and may change with any
-minor release.
-
 ## [Unreleased]
 
 ## [0.6.0] — 2026-07-19
@@ -140,3 +135,7 @@ messages over Redis. **Pre-release** — for validation, not production.
 [0.3.0]: https://github.com/vinicius-paraujo/Pillar/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/vinicius-paraujo/Pillar/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/vinicius-paraujo/Pillar/releases/tag/v0.1.0
+
+---
+*Adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) and [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).*
+
