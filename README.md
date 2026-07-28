@@ -50,11 +50,15 @@ The complete documentation for Pillar, including installation guides, API refere
 
 **Prerequisites:** Redis, a Velocity proxy, and one or more Paper servers on Java 25.
 
-Compiled binaries are available in the [Releases](https://github.com/markineo/Pillar/releases) tab.
+Compiled binaries are available in the [Releases](https://github.com/vinicius-paraujo/Pillar/releases) tab.
 
 For comprehensive instructions on how to install, configure, and use the plugin, refer to the [Installation Guide](https://pillar.markineo.com.br/user/installation/).
 
 If you are developing a plugin that consumes Pillar's API, depend on the `pillar-api` artifact published on Maven Central.
+
+### Example Project: PillarSon
+
+[PillarSon](https://github.com/vinicius-paraujo/PillarSon) is a standalone open-source project demonstrating how to use Pillar primitives in a real-world scenario (exclusive Skyblock island loading via Leases and messaging).
 
 ### Configuration
 
