@@ -4,6 +4,13 @@ All notable changes to Pillar are documented here.
 
 ## [Unreleased]
 
+## [0.6.1] — 2026-07-29
+
+Patch release: fixes a login-time crash uncovered during Velocity 4.0.0 compatibility testing.
+
+### Fixed
+- `routing.entry-role` left empty in `config-velocity.yml` crashed every login attempt (`ServerRole must not be blank`) instead of skipping Pillar's routing, despite the config file's own comment documenting that exact behavior. `LoginListener` now correctly returns before touching the event when the role is blank, leaving Velocity's own `try` list to pick the server.
+
 ## [0.6.0] — 2026-07-19
 
 Sixth release: Documentation, Module Split, and Maven Central. Completes the public documentation and prepares the codebase for community adoption by strictly separating the API contracts from the implementation.

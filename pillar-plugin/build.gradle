@@ -45,6 +45,12 @@ test {
     useJUnitPlatform()
 }
 
+version = rootProject.version
+
+base {
+    archivesName = 'pillar'
+}
+
 jar {
     enabled = false
 }

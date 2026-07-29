@@ -48,6 +48,12 @@ public final class LoginListener {
 
     @Subscribe
     public void onChooseInitialServer(PlayerChooseInitialServerEvent event) {
+        if (settings.entryRole().isBlank()) {
+            // Operator opted out of Pillar-driven routing; leave the event untouched
+            // so Velocity's own try-list ordering picks the server.
+            return;
+        }
+
         ServerRole role = new ServerRole(settings.entryRole());
         String playerName = event.getPlayer().getUsername();
         
