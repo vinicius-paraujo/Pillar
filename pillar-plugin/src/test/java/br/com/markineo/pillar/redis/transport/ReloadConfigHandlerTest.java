@@ -6,7 +6,9 @@ import br.com.markineo.pillar.core.task.CorrelationId;
 import br.com.markineo.pillar.core.task.Envelope;
 import br.com.markineo.pillar.core.task.EnvelopeCodec;
 import br.com.markineo.pillar.core.task.PillarMessageTypes;
+import br.com.markineo.pillar.logger.PillarLogger;
 import org.junit.jupiter.api.Test;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -23,7 +25,8 @@ class ReloadConfigHandlerTest {
         FakeConfigurations configurations = new FakeConfigurations();
         FakeStreamPublisher publisher = new FakeStreamPublisher();
         ServerId self = new ServerId("self-node");
-        ReloadConfigHandler handler = new ReloadConfigHandler(configurations, self, publisher);
+        PillarLogger logger = new PillarLogger(LoggerFactory.getLogger("reload-test"));
+        ReloadConfigHandler handler = new ReloadConfigHandler(configurations, self, publisher, logger);
         
         Envelope request = Envelope.request(PillarMessageTypes.RELOAD_CONFIG, new ServerId("sender-node"), "{}");
         CorrelationId correlation = request.correlationId().orElseThrow();
@@ -40,6 +43,8 @@ class ReloadConfigHandlerTest {
         assertTrue(reply.correlationId().isPresent(), "Reply should have correlation");
         assertEquals(correlation, reply.correlationId().get(), "Correlation ID should match");
         assertEquals(self, reply.senderId(), "Sender should be self-node");
+        assertTrue(logger.history().stream()
+                .anyMatch(entry -> entry.message().equals("Reload completed successfully.")));
     }
 
     @Test
@@ -48,7 +53,8 @@ class ReloadConfigHandlerTest {
         FakeConfigurations configurations = new FakeConfigurations();
         FakeStreamPublisher publisher = new FakeStreamPublisher();
         ServerId self = new ServerId("self-node");
-        ReloadConfigHandler handler = new ReloadConfigHandler(configurations, self, publisher);
+        PillarLogger logger = new PillarLogger(LoggerFactory.getLogger("reload-test"));
+        ReloadConfigHandler handler = new ReloadConfigHandler(configurations, self, publisher, logger);
         
         Envelope request = Envelope.oneWay(PillarMessageTypes.RELOAD_CONFIG, new ServerId("sender-node"), "{}");
         

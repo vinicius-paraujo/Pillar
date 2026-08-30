@@ -46,6 +46,11 @@ public final class PillarLogger {
         record(Level.WARN, message);
     }
 
+    public void warn(String message, Throwable cause) {
+        delegate.warn(message, cause);
+        record(Level.WARN, message);
+    }
+
     public void error(String message) {
         delegate.error(message);
         record(Level.ERROR, message);

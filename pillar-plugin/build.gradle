@@ -31,6 +31,11 @@ dependencies {
         exclude group: 'org.slf4j'
         exclude group: 'com.google.errorprone'
     }
+    // Declared even though Jedis already brings it: the wire codec deserializes through
+    // Gson, so leaving the version to a transitive edge means a Jedis patch bump can change
+    // deserialization behavior with nothing here to show it. Record payloads also need
+    // 2.10 or newer, since older Gson fails hard on setAccessible against a record.
+    implementation 'com.google.code.gson:gson:2.11.0'
     implementation 'org.yaml:snakeyaml:2.3'
 
     testImplementation platform('org.junit:junit-bom:5.11.4')
@@ -49,6 +54,15 @@ version = rootProject.version
 
 base {
     archivesName = 'pillar'
+}
+
+processResources {
+    inputs.property 'version', project.version
+    // Plain token replacement rather than expand(): the descriptor's ASCII banner contains
+    // backslashes that Groovy's template engine would try to interpret.
+    filesMatching(['plugin.yml', 'velocity-plugin.json']) {
+        filter { line -> line.replace('${version}', project.version.toString()) }
+    }
 }
 
 jar {

@@ -29,7 +29,7 @@ mavenPublishing {
     pom {
         name = 'Pillar API'
         description = 'Control-plane routing and lease platform for Minecraft (Paper/Velocity)'
-        url = 'https://github.com/markineo/Pillar'
+        url = 'https://github.com/vinicius-paraujo/Pillar'
         licenses {
             license {
                 name = 'The Apache License, Version 2.0'
@@ -44,9 +44,9 @@ mavenPublishing {
             }
         }
         scm {
-            connection = 'scm:git:git://github.com/markineo/Pillar.git'
-            developerConnection = 'scm:git:ssh://github.com/markineo/Pillar.git'
-            url = 'https://github.com/markineo/Pillar'
+            connection = 'scm:git:git://github.com/vinicius-paraujo/Pillar.git'
+            developerConnection = 'scm:git:ssh://github.com/vinicius-paraujo/Pillar.git'
+            url = 'https://github.com/vinicius-paraujo/Pillar'
         }
     }
 }

@@ -38,3 +38,7 @@ bin/
 
 ### Mac OS ###
 .DS_Store
+
+### AI assistant guides
+CLAUDE.md
+GEMINI.md

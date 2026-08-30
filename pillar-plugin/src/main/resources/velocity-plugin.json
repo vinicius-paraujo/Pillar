@@ -1,7 +1,7 @@
 {
   "id": "pillar",
   "name": "Pillar",
-  "version": "0.6.0",
+  "version": "${version}",
   "description": "Camada de plataforma da rede Markineo.",
   "authors": [
     "Markineo"

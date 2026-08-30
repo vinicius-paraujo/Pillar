@@ -26,7 +26,7 @@ reload:
   dispatching: "<yellow>Enviando sinal de reload para <white><count></white> nós...</yellow>"
   success: "<gray>[<white><server></white>] <green>Reload concluído com sucesso.</green></gray>"
   failed: "<gray>[<white><server></white>] <red>Falha no reload: <message></red></gray>"
-  summary: "<green>Reload concluído em <white><count></white> nós.</green>"
+  summary: "<green>Reload concluído: <white><success></white> com sucesso, <white><failures></white> com falha.</green>"
 
 status:
   connection: "<gray>Conexão: <white><state></white></gray>"

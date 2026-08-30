@@ -5,7 +5,7 @@
 # |____|   |__|____/____(____  /__|
 # \/
 name: Pillar
-version: '0.6.0'
+version: '${version}'
 main: br.com.markineo.pillar.paper.Pillar
 api-version: '26.1'
 author: Markineo
@@ -14,7 +14,7 @@ description: Camada de plataforma da rede Markineo.
 commands:
   pillar:
     description: Pillar control-plane diagnostics.
-    usage: /pillar <fleet | status>
+    usage: /pillar <fleet | status | doctor | ping | reload>
     permission: pillar.admin
 
 permissions:

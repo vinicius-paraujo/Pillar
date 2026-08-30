@@ -28,6 +28,7 @@ import br.com.markineo.pillar.redis.lifecycle.RedisConnector;
 import br.com.markineo.pillar.redis.transport.RequestSender;
 import br.com.markineo.pillar.redis.transport.StreamConsumer;
 import br.com.markineo.pillar.redis.transport.StreamPublisher;
+import org.bukkit.command.PluginCommand;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.time.Duration;
@@ -88,7 +89,7 @@ public final class Pillar extends JavaPlugin {
         StreamPublisher publisher = new StreamPublisher(redis, codec);
         HandlerRegistry handlers = new HandlerRegistry(correlations);
         handlers.register(new PingHandler(selfId, publisher, logger));
-        handlers.register(new ReloadConfigHandler(configurations, selfId, publisher));
+        handlers.register(new ReloadConfigHandler(configurations, selfId, publisher, logger));
 
         this.consumer = new StreamConsumer(redis, codec, selfId, executors, logger, handlers.asSink(codec, logger), 
                                            settings.consumerDedupWindow(), settings.consumerPoolSize(), settings.consumerQueueCapacity());
@@ -100,9 +101,15 @@ public final class Pillar extends JavaPlugin {
 
         RequestSender requestSender = new RequestSender(publisher, correlations);
 
-        getCommand("pillar").setExecutor(new PillarCommand(
+        PillarCommand pillarCommand = new PillarCommand(
                 lang, configurations, presence, redis, new InboxDiagnostics(redis), requestSender,
-                new PaperScheduler(this), selfId, logger, consumer));
+                new PaperScheduler(this), selfId, logger, consumer);
+
+        PluginCommand command = getCommand("pillar");
+        command.setExecutor(pillarCommand);
+        // setExecutor does not imply the completer, even for a TabExecutor: without this the
+        // client is told `pillar` takes no arguments and red-flags every subcommand.
+        command.setTabCompleter(pillarCommand);
 
         logger.info("Pillar enabled as '" + settings.name() + "' (role " + settings.role() + ").");
 

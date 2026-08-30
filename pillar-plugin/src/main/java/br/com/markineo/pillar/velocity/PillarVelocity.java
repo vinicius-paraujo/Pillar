@@ -134,7 +134,7 @@ public final class PillarVelocity {
         handlers.register(new RoutePlayerHandler(server, placement, presence, healthRegistry, publisher, selfId, gson, logger));
         handlers.register(new SendPlayerMessageHandler(server, gson, logger));
         handlers.register(new BroadcastHandler(server, gson, logger));
-        handlers.register(new ReloadConfigHandler(configurations, selfId, publisher));
+        handlers.register(new ReloadConfigHandler(configurations, selfId, publisher, logger));
 
         this.consumer = new StreamConsumer(
                 redis,

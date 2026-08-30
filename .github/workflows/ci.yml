@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      # The Redis suites are skipped rather than failed when no daemon is reachable, so an
+      # unavailable daemon would otherwise reach the end as a green run that verified
+      # nothing. Fail on it here, where the cause is unambiguous, instead of leaving it to
+      # the result check below to report as an unexplained pile of skips.
+      - name: Verify Docker is available
+        run: docker info
+
+      # `build` covers compile, check (unit, integration, and the ArchUnit boundary tests),
+      # and shadowJar, so the shaded jar is proven to assemble on every run too.
+      - name: Build and test
+        run: ./gradlew build
+
+      - name: Verify the test run was complete
+        run: python3 .github/scripts/verify_test_results.py
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: '**/build/test-results/test/*.xml'
+          if-no-files-found: warn

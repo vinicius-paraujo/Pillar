@@ -4,6 +4,26 @@ All notable changes to Pillar are documented here.
 
 ## [Unreleased]
 
+## [0.6.2] — 2026-08-30
+
+Patch release: Redis connection reliability, command tab completion, and correct published metadata.
+
+### Fixed
+- Redis driver failures were discarded without a trace. A command that never reached Redis and a Redis that simply answered no both surfaced as the same empty result internally, and neither left anything in the log, so an operator had no way to tell them apart after the fact. The driver's own reason for failing is now logged with its cause, throttled so a store that keeps failing does not produce one line per call. What callers receive is unchanged, so no API behavior moved.
+- The inbox consumer could stop consuming indefinitely while the plugin still reported Redis as healthy. Jedis lifts the socket read timeout for the duration of a blocking command, so the consumer's blocking `XREADGROUP` carried no client-side deadline at all: a connection that stopped delivering without closing, such as a replaced Redis container or an expired NAT entry, left the consumer thread waiting on it forever, and the health check runs on a separate connection. The connection pool is now built with an explicit deadline for blocking reads, set above the consumer's block window.
+- `/pillar` subcommands were flagged as invalid arguments in the client's command display, and tab completion never worked. The command registered an executor but never a tab completer, so `PillarCommand.onTabComplete` was unreachable and the client was told `/pillar` accepts no arguments.
+- `plugin.yml` reported a hardcoded `0.6.0` regardless of the built version, so the server's plugin list showed the wrong number. The descriptor now takes the version from the build.
+- `/pillar` usage text listed only `fleet` and `status`, omitting `doctor`, `ping`, and `reload`.
+- A single slow Redis command made the platform declare the connection unreachable, which stopped every other operation until the next health check. On a busy machine a network hiccup of well under a second was enough, and while the state held, work that Redis could still have served was refused outright, including lease acquisition, which reaches players as a resource that will not open. The health check now needs three consecutive failures before declaring a loss, so a brief stall passes without consequence while a genuine outage is still recognised within fifteen seconds.
+- The summary line of `/pillar reload <role>` printed a literal `<count>` instead of a result. The message named a placeholder the command never provides, and an unresolved placeholder is passed through to the player as written. It now reports how many nodes succeeded and how many failed, which the command already tracked.
+- `/pillar reload` did not complete its role argument. Paper and Velocity now suggest the distinct roles represented by servers currently online, without maintaining a second catalogue of roles that may be stale.
+- A remote reload left no operational record on the receiving node. Each node now logs who requested the reload and whether reloading its configuration succeeded or failed, retaining the failure cause for an administrator.
+- `gradlew` was not marked executable in the repository, so `./gradlew` failed with a permission error on a fresh clone on Linux or macOS. Contributors had to work around it; it now carries the executable bit.
+- The `pillar-api` project and SCM links published to Maven Central pointed at a GitHub organization that does not exist, so source links from the artifact page led nowhere and dependency bots could not fetch the changelog. They now point at the real repository.
+
+### Changed
+- Gson is now a declared dependency instead of arriving only through Jedis. Nothing about the build output changes today, at the same 2.11.0 it already resolved to; the point is that a future Jedis bump can no longer move the library that deserializes the wire format without that being visible here.
+
 ## [0.6.1] — 2026-07-29
 
 Patch release: fixes a login-time crash uncovered during Velocity 4.0.0 compatibility testing.
@@ -145,4 +165,3 @@ messages over Redis. **Pre-release** — for validation, not production.
 
 ---
 *Adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) and [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).*
-

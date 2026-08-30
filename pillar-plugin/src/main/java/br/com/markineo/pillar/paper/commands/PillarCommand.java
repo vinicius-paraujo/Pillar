@@ -258,6 +258,13 @@ public final class PillarCommand implements TabExecutor {
                     .map(node -> node.id().value())
                     .filter(s -> s.toLowerCase().startsWith(args[1].toLowerCase()))
                     .toList();
+        } else if (args.length == 2 && args[0].equalsIgnoreCase("reload")) {
+            return presence.cachedFleet().members().stream()
+                    .map(node -> node.role().value())
+                    .distinct()
+                    .sorted()
+                    .filter(s -> s.toLowerCase().startsWith(args[1].toLowerCase()))
+                    .toList();
         }
         return List.of();
     }
